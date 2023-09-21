@@ -49,8 +49,8 @@ import (
 
 var (
 	// MaxInstanceTypes defines the number of instance type options to pass to CreateFleet
-	MaxInstanceTypes                 = 60
-	instanceTypeFlexibilityThreshold = 5 // falling back to on-demand without flexibility risks insufficient capacity errors
+	MaxInstanceTypes                 = 60 // JANOTE: interesting
+	instanceTypeFlexibilityThreshold = 5  // falling back to on-demand without flexibility risks insufficient capacity errors
 
 	instanceStateFilter = &ec2.Filter{
 		Name:   aws.String("instance-state-name"),
@@ -83,7 +83,7 @@ func NewProvider(ctx context.Context, region string, ec2api ec2iface.EC2API, una
 
 func (p *Provider) Create(ctx context.Context, nodeTemplate *v1alpha1.AWSNodeTemplate, machine *v1alpha5.Machine, instanceTypes []*cloudprovider.InstanceType) (*Instance, error) {
 	instanceTypes = p.filterInstanceTypes(machine, instanceTypes)
-	instanceTypes = orderInstanceTypesByPrice(instanceTypes, scheduling.NewNodeSelectorRequirements(machine.Spec.Requirements...))
+	instanceTypes = orderInstanceTypesByPrice(instanceTypes, scheduling.NewNodeSelectorRequirements(machine.Spec.Requirements...)) // JANOTE: see
 	if len(instanceTypes) > MaxInstanceTypes {
 		instanceTypes = instanceTypes[0:MaxInstanceTypes]
 	}
@@ -374,6 +374,7 @@ func (p *Provider) getCapacityType(machine *v1alpha5.Machine, instanceTypes []*c
 	return v1alpha5.CapacityTypeOnDemand
 }
 
+// JANOTE: see
 func orderInstanceTypesByPrice(instanceTypes []*cloudprovider.InstanceType, requirements scheduling.Requirements) []*cloudprovider.InstanceType {
 	// Order instance types so that we get the cheapest instance types of the available offerings
 	sort.Slice(instanceTypes, func(i, j int) bool {

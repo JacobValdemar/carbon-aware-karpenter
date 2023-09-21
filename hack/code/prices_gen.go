@@ -39,6 +39,7 @@ import (
 	"github.com/aws/karpenter/pkg/test"
 )
 
+// JANOTE: hmm
 func main() {
 	flag.Parse()
 	if flag.NArg() != 1 {

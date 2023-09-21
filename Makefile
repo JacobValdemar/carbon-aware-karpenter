@@ -1,6 +1,6 @@
 export K8S_VERSION ?= 1.27.x
 export KUBEBUILDER_ASSETS ?= ${HOME}/.kubebuilder/bin
-CLUSTER_NAME ?= $(shell kubectl config view --minify -o jsonpath='{.clusters[].name}' | rev | cut -d"/" -f1 | rev | cut -d"." -f1)
+CLUSTER_NAME ?= $(shell ../kubectl config view --minify -o jsonpath='{.clusters[].name}' | rev | cut -d"/" -f1 | rev | cut -d"." -f1)
 
 ## Inject the app version into project.Version
 ifdef SNAPSHOT_TAG
@@ -13,7 +13,7 @@ GOFLAGS ?= $(LDFLAGS)
 WITH_GOFLAGS = GOFLAGS="$(GOFLAGS)"
 
 ## Extra helm options
-CLUSTER_ENDPOINT ?= $(shell kubectl config view --minify -o jsonpath='{.clusters[].cluster.server}')
+CLUSTER_ENDPOINT ?= $(shell ../kubectl config view --minify -o jsonpath='{.clusters[].cluster.server}')
 AWS_ACCOUNT_ID ?= $(shell aws sts get-caller-identity --query Account --output text)
 KARPENTER_IAM_ROLE_ARN ?= arn:aws:iam::${AWS_ACCOUNT_ID}:role/${CLUSTER_NAME}-karpenter
 HELM_OPTS ?= --set serviceAccount.annotations.eks\\.amazonaws\\.com/role-arn=${KARPENTER_IAM_ROLE_ARN} \
@@ -31,7 +31,7 @@ HELM_OPTS ?= --set serviceAccount.annotations.eks\\.amazonaws\\.com/role-arn=${K
 # CR for local builds of Karpenter
 SYSTEM_NAMESPACE ?= karpenter
 KARPENTER_VERSION ?= $(shell git tag --sort=committerdate | tail -1)
-KO_DOCKER_REPO ?= ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_DEFAULT_REGION}.amazonaws.com/dev
+KO_DOCKER_REPO ?= ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_DEFAULT_REGION}.amazonaws.com/jan-karpenter-dev
 GETTING_STARTED_SCRIPT_DIR = website/content/en/preview/getting-started/getting-started-with-karpenter/scripts
 
 # Common Directories
@@ -52,20 +52,20 @@ ci-test: battletest coverage ## Runs tests and submits coverage
 ci-non-test: verify licenses vulncheck ## Runs checks other than tests
 
 run: ## Run Karpenter controller binary against your local cluster
-	kubectl create configmap -n ${SYSTEM_NAMESPACE} karpenter-global-settings \
+	../kubectl create configmap -n ${SYSTEM_NAMESPACE} karpenter-global-settings \
 		--from-literal=aws.clusterName=${CLUSTER_NAME} \
 		--from-literal=aws.clusterEndpoint=${CLUSTER_ENDPOINT} \
 		--from-literal=aws.defaultInstanceProfile=KarpenterNodeInstanceProfile-${CLUSTER_NAME} \
 		--from-literal=aws.interruptionQueueName=${CLUSTER_NAME} \
 		--from-literal=featureGates.driftEnabled=true \
-		--dry-run=client -o yaml | kubectl apply -f -
+		--dry-run=client -o yaml | ../kubectl apply -f -
 
 
 	SYSTEM_NAMESPACE=${SYSTEM_NAMESPACE} KUBERNETES_MIN_VERSION="1.19.0-0" LEADER_ELECT=false DISABLE_WEBHOOK=true \
 		go run ./cmd/controller/main.go
 
 clean-run: ## Clean resources deployed by the run target
-	kubectl delete configmap -n ${SYSTEM_NAMESPACE} karpenter-global-settings --ignore-not-found
+	../kubectl delete configmap -n ${SYSTEM_NAMESPACE} karpenter-global-settings --ignore-not-found
 
 test: ## Run tests
 	go test -v ./pkg/$(shell echo $(TEST_SUITE) | tr A-Z a-z)/... --ginkgo.focus="${FOCUS}" --ginkgo.vv
@@ -132,7 +132,7 @@ setup: ## Sets up the IAM roles needed prior to deploying the karpenter-controll
 	CLUSTER_NAME=${CLUSTER_NAME} ./$(GETTING_STARTED_SCRIPT_DIR)/add-roles.sh $(KARPENTER_VERSION)
 
 image: ## Build the Karpenter controller images using ko build
-	$(eval CONTROLLER_IMG=$(shell $(WITH_GOFLAGS) KO_DOCKER_REPO="$(KO_DOCKER_REPO)" ko build --bare github.com/aws/karpenter/cmd/controller))
+	$(eval CONTROLLER_IMG=$(shell $(WITH_GOFLAGS) KO_DOCKER_REPO="$(KO_DOCKER_REPO)" ko build --bare ./cmd/controller --platform linux/arm64))
 	$(eval IMG_REPOSITORY=$(shell echo $(CONTROLLER_IMG) | cut -d "@" -f 1 | cut -d ":" -f 1))
 	$(eval IMG_TAG=$(shell echo $(CONTROLLER_IMG) | cut -d "@" -f 1 | cut -d ":" -f 2 -s))
 	$(eval IMG_DIGEST=$(shell echo $(CONTROLLER_IMG) | cut -d "@" -f 2))

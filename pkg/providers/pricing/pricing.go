@@ -39,6 +39,7 @@ import (
 	"github.com/aws/karpenter-core/pkg/utils/pretty"
 )
 
+// JANOTE: dis file
 // Provider provides actual pricing data to the AWS cloud provider to allow it to make more informed decisions
 // regarding which instances to launch.  This is initialized at startup with a periodically updated static price list to
 // support running in locations where pricing data is unavailable.  In those cases the static pricing data provides a
@@ -127,6 +128,7 @@ func (p *Provider) SpotLastUpdated() time.Time {
 	return p.spotUpdateTime
 }
 
+// JANOTE: should create something like this?
 // OnDemandPrice returns the last known on-demand price for a given instance type, returning an error if there is no
 // known on-demand pricing for the instance type.
 func (p *Provider) OnDemandPrice(instanceType string) (float64, bool) {
