@@ -55,7 +55,7 @@ There are both automated and manual ways of deprovisioning nodes provisioned by 
 * **Consolidation**: Karpenter works to actively reduce cluster cost by identifying when:
   * Nodes can be removed as their workloads will run on other nodes in the cluster.
   * Nodes can be replaced with cheaper variants due to a change in the workloads.
-* **Drift**: Karpenter will annotate nodes as drifted and deprovision nodes that have drifted from their desired specification. See [Drift]({{<ref "./deprovisioning/#drift" >}}) to see which fields are considered.
+* **Drift**: Karpenter will annotate nodes as drifted and deprovision nodes that have drifted from their desired specification. See [Drift]({{<ref "./deprovisioning/#drift" >}})  to see which fields are considered.
 * **Interruption**: If enabled, Karpenter will watch for upcoming involuntary interruption events that could affect your nodes (health events, spot interruption, etc.) and will cordon, drain, and terminate the node(s) ahead of the event to reduce workload disruption.
 
 {{% alert title="Note" color="primary" %}}
@@ -142,44 +142,46 @@ data:
 
 ## Drift
 
-Karpenter Drift will classify each CRD field as a (1) Static, (2) Dynamic, or (3) Behavioral field and will treat them differently. Static Drift will be a one-way reconciliation, triggered only by CRD changes. Dynamic Drift will be a two-way reconciliation, triggered by machine/node/instance changes and Provisioner or AWSNodetemplate changes.
+Drift on most fields are only triggered by changes to the owning CustomResource. Some special cases will be reconciled two-ways, triggered by Machine/Node/Instance changes or Provisioner/AWSNodeTemplate changes. For one-way reconciliation, values in the CustomResource are reflected in the Machine in the same way that they’re set. A machine will be detected as drifted if the values in the CRDs do not match the values in the Machine. By default, fields are drifted using one-way reconciliation. 
 
-1. For Static Fields, values in the CRDs are reflected in the machine in the same way that they’re set. A machine will be detected as drifted if the values in the CRDs do not match the values in the machine.
+### Two-way Reconciliation
+Two-way reconciliation can correspond to multiple values and must be handled differently. Two-way reconciliation can create cases where drift occurs without changes to CRDs, or where CRD changes do not result in drift. For example, if a machine has `node.kubernetes.io/instance-type: m5.large`, and requirements change from `node.kubernetes.io/instance-type In [m5.large]` to `node.kubernetes.io/instance-type In [m5.large, m5.2xlarge]`, the machine will not be drifted because its value is still compatible with the new requirements. Conversely, for an AWS Installation, if a machine is using a machine image `ami: ami-abc`, but a new image is published, Karpenter's `AWSNodeTemplate.amiSelector` will discover that the new correct value is `ami: ami-xyz`, and detect the machine as drifted.
 
-2. Dynamic Fields can correspond to multiple values and must be handled differently. Dynamic fields can create cases where drift occurs without changes to CRDs, or where CRD changes do not result in drift. For example, if a machine has `node.kubernetes.io/instance-type: m5.large`, and requirements change from `node.kubernetes.io/instance-type In [m5.large]` to `node.kubernetes.io/instance-type In [m5.large, m5.2xlarge]`, the machine will not be drifted because it's value is still compatible with the new requirements. Conversely, for an AWS Installation, if a machine is using a machine image `ami: ami-abc`, but a new image is published, Karpenter's `AWSNodeTemplate.amiSelector` will discover that the new correct value is `ami: ami-xyz`, and detect the machine as drifted.
+### Behavioral Fields
+Behavioral Fields are treated as over-arching settings on the Provisioner to dictate how Karpenter behaves. These fields don’t correspond to settings on the machine or instance. They’re set by the user to control Karpenter’s Provisioning and Deprovisioning logic. Since these don’t map to a desired state of machines, __behavioral fields are not considered for Drift__.
 
-3. Behavioral Fields are treated as over-arching settings on the Provisioner to dictate how Karpenter behaves. These fields don’t correspond to settings on the machine or instance. They’re set by the user to control Karpenter’s Provisioning and Deprovisioning logic. Since these don’t map to a desired state of machines, these fields will not be considered for Drift.
+Read the [Drift Design](https://github.com/aws/karpenter-core/blob/main/designs/drift.md) for more.
 
-Read the [Drift Design](https://github.com/aws/karpenter-core/pull/366/files) for more.
+#### Provisioner
+| Fields                     | One-way | Two-way | 
+|----------------------------|  :---:  |  :---:  |    
+| Startup Taints             |    x    |         |      
+| Taints                     |    x    |         |      
+| Labels                     |    x    |         |      
+| Annotations                |    x    |         |      
+| Node Requirements          |         |    x    |      
+| Kubelet Configuration      |    x    |         |
 
-|Provisioner Fields          | Static | Dynamic | Behavioral | Implemented |
-|----------------------------|  :---: |  :---:  |   :---:    |    :---:    |
-| Startup Taints             |    x   |         |            |             |
-| Taints                     |    x   |         |            |             |
-| Labels                     |    x   |         |            |             |
-| Annotations                |    x   |         |            |             |
-| Node Requirements          |        |    x    |            |             |
-| Kubelet Configuration      |    x   |         |            |             |
-| Weight                     |        |         |      x     |     NA      |
-| Limits                     |        |         |      x     |     NA      |
-| Consolidation              |        |         |      x     |     NA      |
-| TTLSecondsUntilExpired     |        |         |      x     |     NA      |
-| TTLSecondsAfterEmpty       |        |         |      x     |     NA      |
-
-
-|AWSNodeTemplate Fields      | Static | Dynamic | Behavioral | Implemented |
-|----------------------------|  :---: |  :---:  |   :---:    |    :---:    |
-| Subnet Selector            |        |    x    |            |      x      |
-| Security Group Selector    |        |    x    |            |      x      |
-| Instance Profile           |    x   |         |            |             |
-| AMI Family/AMI Selector    |        |    x    |            |      x      |
-| UserData                   |    x   |         |            |             |
-| Tags                       |    x   |         |            |             |
-| Metadata Options           |    x   |         |            |             |
-| Block Device Mappings      |    x   |         |            |             |
-| Detailed Monitoring        |    x   |         |            |             |
-|                            |        |         |            |             |
-
+__Behavioral Fields__
+- Weight                      
+- Limits                      
+- Consolidation               
+- TTLSecondsUntilExpired      
+- TTLSecondsAfterEmpty  
+---      
+#### AWSNodeTemplate
+| Fields                     | One-way | Two-way  |
+|----------------------------|  :---:  |  :---:   |
+| Subnet Selector            |         |    x     |
+| Security Group Selector    |         |    x     |
+| Instance Profile           |    x    |          |
+| AMI Family                 |    x    |          |
+| AMI Selector               |         |    x     |
+| UserData                   |    x    |          |
+| Tags                       |    x    |          |
+| Metadata Options           |    x    |          |
+| Block Device Mappings      |    x    |          |
+| Detailed Monitoring        |    x    |          |
 
 To enable the drift feature flag, refer to the [Settings Feature Gates]({{<ref "./settings#feature-gates" >}}).
 

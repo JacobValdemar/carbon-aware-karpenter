@@ -36,6 +36,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/eks/eksiface"
 	"github.com/aws/aws-sdk-go/service/ssm"
 	"github.com/patrickmn/go-cache"
+
 	"github.com/samber/lo"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
@@ -54,6 +55,7 @@ import (
 	"github.com/aws/karpenter/pkg/providers/pricing"
 	"github.com/aws/karpenter/pkg/providers/securitygroup"
 	"github.com/aws/karpenter/pkg/providers/subnet"
+	"github.com/aws/karpenter/pkg/providers/version"
 	"github.com/aws/karpenter/pkg/utils/project"
 )
 
@@ -70,6 +72,7 @@ type Operator struct {
 	AMIResolver               *amifamily.Resolver
 	LaunchTemplateProvider    *launchtemplate.Provider
 	PricingProvider           *pricing.Provider
+	VersionProvider           *version.Provider
 	InstanceTypesProvider     *instancetype.Provider
 	InstanceProvider          *instance.Provider
 }
@@ -126,8 +129,8 @@ func NewOperator(ctx context.Context, operator *operator.Operator) (context.Cont
 		ec2api,
 		*sess.Config.Region,
 	)
-	amiProvider := amifamily.NewProvider(operator.GetClient(), operator.KubernetesInterface, ssm.New(sess), ec2api,
-		cache.New(awscache.DefaultTTL, awscache.DefaultCleanupInterval), cache.New(awscache.DefaultTTL, awscache.DefaultCleanupInterval), cache.New(awscache.DefaultTTL, awscache.DefaultCleanupInterval))
+	versionProvider := version.NewProvider(operator.KubernetesInterface, cache.New(awscache.DefaultTTL, awscache.DefaultCleanupInterval))
+	amiProvider := amifamily.NewProvider(versionProvider, ssm.New(sess), ec2api, cache.New(awscache.DefaultTTL, awscache.DefaultCleanupInterval))
 	amiResolver := amifamily.New(amiProvider)
 	launchTemplateProvider := launchtemplate.NewProvider(
 		ctx,
@@ -168,6 +171,7 @@ func NewOperator(ctx context.Context, operator *operator.Operator) (context.Cont
 		SecurityGroupProvider:     securityGroupProvider,
 		AMIProvider:               amiProvider,
 		AMIResolver:               amiResolver,
+		VersionProvider:           versionProvider,
 		LaunchTemplateProvider:    launchTemplateProvider,
 		PricingProvider:           pricingProvider,
 		InstanceTypesProvider:     instanceTypeProvider,
