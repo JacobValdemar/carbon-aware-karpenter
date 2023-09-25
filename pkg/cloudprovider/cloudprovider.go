@@ -281,6 +281,7 @@ func (c *CloudProvider) resolveNodeTemplate(ctx context.Context, raw []byte, obj
 	return nodeTemplate, nil
 }
 
+// JANOTE: calls into karpenter-core scheduling
 func (c *CloudProvider) resolveInstanceTypes(ctx context.Context, nodeClaim *corev1beta1.NodeClaim, nodeClass *v1beta1.EC2NodeClass) ([]*cloudprovider.InstanceType, error) {
 	instanceTypes, err := c.instanceTypeProvider.List(ctx, nodeClaim.Spec.Kubelet, nodeClass)
 	if err != nil {

@@ -90,7 +90,7 @@ func (p *Provider) Create(ctx context.Context, nodeClass *v1beta1.EC2NodeClass, 
 		instanceTypes = instanceTypes[0:MaxInstanceTypes]
 	}
 	tags := getTags(ctx, nodeClass, nodeClaim)
-	fleetInstance, err := p.launchInstance(ctx, nodeClass, nodeClaim, instanceTypes, tags)
+	fleetInstance, err := p.launchInstance(ctx, nodeClass, nodeClaim, instanceTypes, tags) // JANOTE
 	if awserrors.IsLaunchTemplateNotFound(err) {
 		// retry once if launch template is not found. This allows karpenter to generate a new LT if the
 		// cache was out-of-sync on the first try
@@ -219,6 +219,7 @@ func (p *Provider) launchInstance(ctx context.Context, nodeClass *v1beta1.EC2Nod
 			{ResourceType: aws.String(ec2.ResourceTypeFleet), Tags: utils.MergeTags(tags)},
 		},
 	}
+	// JANOTE: here fleet is created. Use prioritized instead?
 	if capacityType == corev1beta1.CapacityTypeSpot {
 		createFleetInput.SpotOptions = &ec2.SpotOptionsRequest{AllocationStrategy: aws.String(ec2.SpotAllocationStrategyPriceCapacityOptimized)}
 	} else {
