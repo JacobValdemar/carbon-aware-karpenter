@@ -94,6 +94,13 @@ var _ = Describe("EC2NodeClass/LaunchTemplates", func() {
 			Expect(*launchTemplate.LaunchTemplateSpecification.Version).To(Equal("$Latest"))
 		})
 	})
+	It("should fail to provision if the instance profile isn't defined", func() {
+		nodeClass.Status.InstanceProfile = ""
+		ExpectApplied(ctx, env.Client, nodePool, nodeClass)
+		pod := coretest.UnschedulablePod()
+		ExpectProvisioned(ctx, env.Client, cluster, cloudProvider, prov, pod)
+		ExpectNotScheduled(ctx, env.Client, pod)
+	})
 	Context("Cache", func() {
 		It("should use same launch template for equivalent constraints", func() {
 			t1 := v1.Toleration{
@@ -189,31 +196,6 @@ var _ = Describe("EC2NodeClass/LaunchTemplates", func() {
 		})
 	})
 	Context("Tags", func() {
-		It("should tag with NodePool name", func() {
-			nodePoolName := "custom-nodepool"
-			nodePool.Name = nodePoolName
-			ExpectApplied(ctx, env.Client, nodePool, nodeClass)
-			pod := coretest.UnschedulablePod()
-			ExpectProvisioned(ctx, env.Client, cluster, cloudProvider, prov, pod)
-			ExpectScheduled(ctx, env.Client, pod)
-			Expect(awsEnv.EC2API.CreateFleetBehavior.CalledWithInput.Len()).To(Equal(1))
-			createFleetInput := awsEnv.EC2API.CreateFleetBehavior.CalledWithInput.Pop()
-			Expect(createFleetInput.TagSpecifications).To(HaveLen(3))
-
-			tags := map[string]string{
-				corev1beta1.NodePoolLabelKey: nodePoolName,
-				"Name":                       fmt.Sprintf("%s/%s", corev1beta1.NodePoolLabelKey, nodePoolName),
-			}
-			// tags should be included in instance, volume, and fleet tag specification
-			Expect(*createFleetInput.TagSpecifications[0].ResourceType).To(Equal(ec2.ResourceTypeInstance))
-			ExpectTags(createFleetInput.TagSpecifications[0].Tags, tags)
-
-			Expect(*createFleetInput.TagSpecifications[1].ResourceType).To(Equal(ec2.ResourceTypeVolume))
-			ExpectTags(createFleetInput.TagSpecifications[1].Tags, tags)
-
-			Expect(*createFleetInput.TagSpecifications[2].ResourceType).To(Equal(ec2.ResourceTypeFleet))
-			ExpectTags(createFleetInput.TagSpecifications[2].Tags, tags)
-		})
 		It("should request that tags be applied to both instances and volumes", func() {
 			nodeClass.Spec.Tags = map[string]string{
 				"tag1": "tag1value",
@@ -586,12 +568,20 @@ var _ = Describe("EC2NodeClass/LaunchTemplates", func() {
 			ExpectNotScheduled(ctx, env.Client, pod)
 		})
 		It("should pack pods using the blockdevicemappings from the provider spec when defined", func() {
-			nodeClass.Spec.BlockDeviceMappings = []*v1beta1.BlockDeviceMapping{{
-				DeviceName: aws.String("/dev/xvda"),
-				EBS: &v1beta1.BlockDevice{
-					VolumeSize: resource.NewScaledQuantity(50, resource.Giga),
+			nodeClass.Spec.BlockDeviceMappings = []*v1beta1.BlockDeviceMapping{
+				{
+					DeviceName: aws.String("/dev/xvda"),
+					EBS: &v1beta1.BlockDevice{
+						VolumeSize: resource.NewScaledQuantity(50, resource.Giga),
+					},
 				},
-			}}
+				{
+					DeviceName: aws.String("/dev/xvdb"),
+					EBS: &v1beta1.BlockDevice{
+						VolumeSize: resource.NewScaledQuantity(20, resource.Giga),
+					},
+				},
+			}
 			ExpectApplied(ctx, env.Client, nodePool, nodeClass)
 			pod := coretest.UnschedulablePod(coretest.PodOptions{ResourceRequirements: v1.ResourceRequirements{
 				Requests: map[v1.ResourceName]resource.Quantity{
@@ -618,6 +608,43 @@ var _ = Describe("EC2NodeClass/LaunchTemplates", func() {
 					DeviceName: aws.String("/dev/xvdb"),
 					EBS: &v1beta1.BlockDevice{
 						VolumeSize: resource.NewScaledQuantity(40, resource.Giga),
+					},
+				},
+			}
+			ExpectApplied(ctx, env.Client, nodePool, nodeClass)
+			pod := coretest.UnschedulablePod(coretest.PodOptions{ResourceRequirements: v1.ResourceRequirements{
+				Requests: map[v1.ResourceName]resource.Quantity{
+					// this pod can only be satisfied if `/dev/xvdb` will house all the pods.
+					v1.ResourceEphemeralStorage: resource.MustParse("25Gi"),
+				},
+			},
+			})
+			ExpectProvisioned(ctx, env.Client, cluster, cloudProvider, prov, pod)
+
+			// capacity isn't recorded on the node any longer, but we know the pod should schedule
+			ExpectScheduled(ctx, env.Client, pod)
+		})
+		It("should pack pods using the configured root volume in blockdevicemappings", func() {
+			nodeClass.Spec.AMIFamily = &v1beta1.AMIFamilyCustom
+			nodeClass.Spec.AMISelectorTerms = []v1beta1.AMISelectorTerm{{Tags: map[string]string{"*": "*"}}}
+			nodeClass.Spec.BlockDeviceMappings = []*v1beta1.BlockDeviceMapping{
+				{
+					DeviceName: aws.String("/dev/xvda"),
+					EBS: &v1beta1.BlockDevice{
+						VolumeSize: resource.NewScaledQuantity(20, resource.Giga),
+					},
+				},
+				{
+					DeviceName: aws.String("/dev/xvdb"),
+					EBS: &v1beta1.BlockDevice{
+						VolumeSize: resource.NewScaledQuantity(40, resource.Giga),
+					},
+					RootVolume: true,
+				},
+				{
+					DeviceName: aws.String("/dev/xvdc"),
+					EBS: &v1beta1.BlockDevice{
+						VolumeSize: resource.NewScaledQuantity(20, resource.Giga),
 					},
 				},
 			}
@@ -934,14 +961,6 @@ var _ = Describe("EC2NodeClass/LaunchTemplates", func() {
 			ExpectProvisioned(ctx, env.Client, cluster, cloudProvider, prov, pod)
 			ExpectScheduled(ctx, env.Client, pod)
 			ExpectLaunchTemplatesCreatedWithUserDataContaining("--container-runtime containerd")
-		})
-		It("should specify dockerd if specified in the provisionerSpec", func() {
-			nodePool.Spec.Template.Spec.Kubelet = &corev1beta1.KubeletConfiguration{ContainerRuntime: aws.String("dockerd")}
-			ExpectApplied(ctx, env.Client, nodePool, nodeClass)
-			pod := coretest.UnschedulablePod()
-			ExpectProvisioned(ctx, env.Client, cluster, cloudProvider, prov, pod)
-			ExpectScheduled(ctx, env.Client, pod)
-			ExpectLaunchTemplatesCreatedWithUserDataContaining("--container-runtime dockerd")
 		})
 		It("should specify --container-runtime containerd when using Neuron GPUs", func() {
 			nodePool.Spec.Template.Spec.Requirements = []v1.NodeSelectorRequirement{{Key: v1beta1.LabelInstanceCategory, Operator: v1.NodeSelectorOpExists}}

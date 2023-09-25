@@ -23,7 +23,9 @@ import (
 	"github.com/imdario/mergo"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"knative.dev/pkg/apis"
 	. "knative.dev/pkg/logging/testing"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -532,6 +534,43 @@ var _ = Describe("Validation", func() {
 				Spec: nodeClass.Spec,
 			})
 			Expect(nodeClass.Hash()).To(Equal(otherNodeClass.Hash()))
+		})
+	})
+	Context("BlockDeviceMappings", func() {
+		It("should fail if more than one root volume is specified", func() {
+			nodeClass := test.EC2NodeClass(v1beta1.EC2NodeClass{
+				Spec: v1beta1.EC2NodeClassSpec{
+					BlockDeviceMappings: []*v1beta1.BlockDeviceMapping{
+						{
+							DeviceName: aws.String("map-device-1"),
+							EBS: &v1beta1.BlockDevice{
+								VolumeSize: resource.NewScaledQuantity(50, resource.Giga),
+							},
+
+							RootVolume: true,
+						},
+						{
+							DeviceName: aws.String("map-device-2"),
+							EBS: &v1beta1.BlockDevice{
+								VolumeSize: resource.NewScaledQuantity(50, resource.Giga),
+							},
+
+							RootVolume: true,
+						},
+					},
+				},
+			})
+			Expect(nodeClass.Validate(ctx)).To(Not(Succeed()))
+		})
+	})
+	Context("Role Immutability", func() {
+		It("should fail when updating the role", func() {
+			nc.Spec.Role = "test-role"
+			Expect(nc.Validate(ctx)).To(Succeed())
+
+			updateCtx := apis.WithinUpdate(ctx, nc.DeepCopy())
+			nc.Spec.Role = "test-role2"
+			Expect(nc.Validate(updateCtx)).ToNot(Succeed())
 		})
 	})
 })
