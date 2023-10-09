@@ -32,6 +32,7 @@ import (
 	nodeclaimlink "github.com/aws/karpenter/pkg/controllers/nodeclaim/link"
 	"github.com/aws/karpenter/pkg/controllers/nodeclass"
 	"github.com/aws/karpenter/pkg/providers/amifamily"
+	"github.com/aws/karpenter/pkg/providers/carbon"
 	"github.com/aws/karpenter/pkg/providers/instanceprofile"
 	"github.com/aws/karpenter/pkg/providers/pricing"
 	"github.com/aws/karpenter/pkg/providers/securitygroup"
@@ -39,11 +40,12 @@ import (
 	"github.com/aws/karpenter/pkg/utils/project"
 
 	"github.com/aws/karpenter-core/pkg/operator/controller"
+	iprovider "github.com/aws/karpenter/pkg/providers"
 )
 
 func NewControllers(ctx context.Context, sess *session.Session, clk clock.Clock, kubeClient client.Client, recorder events.Recorder,
 	unavailableOfferings *cache.UnavailableOfferings, cloudProvider *cloudprovider.CloudProvider, subnetProvider *subnet.Provider,
-	securityGroupProvider *securitygroup.Provider, instanceProfileProvider *instanceprofile.Provider, pricingProvider *pricing.Provider,
+	securityGroupProvider *securitygroup.Provider, instanceProfileProvider *instanceprofile.Provider, pricingProvider iprovider.IPricingProvider,
 	amiProvider *amifamily.Provider) []controller.Controller {
 
 	logging.FromContext(ctx).With("version", project.Version).Debugf("discovered version")
@@ -60,7 +62,13 @@ func NewControllers(ctx context.Context, sess *session.Session, clk clock.Clock,
 	if settings.FromContext(ctx).IsolatedVPC {
 		logging.FromContext(ctx).Infof("assuming isolated VPC, pricing information will not be updated")
 	} else {
-		controllers = append(controllers, pricing.NewController(pricingProvider))
+		if settings.FromContext(ctx).CarbonAwareEnabled {
+			controllers = append(controllers, carbon.NewController(pricingProvider))
+			logging.FromContext(ctx).With("CarbonAwareEnabled", settings.FromContext(ctx).CarbonAwareEnabled).Debugf("Enabled") // TODO @JacobValdemar: Remove debug
+		} else {
+			controllers = append(controllers, pricing.NewController(pricingProvider))
+			logging.FromContext(ctx).With("CarbonAwareEnabled", settings.FromContext(ctx).CarbonAwareEnabled).Debugf("Disabled") // TODO @JacobValdemar: Remove debug
+		}
 	}
 	return controllers
 }

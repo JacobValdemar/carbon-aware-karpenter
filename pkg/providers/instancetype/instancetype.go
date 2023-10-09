@@ -26,6 +26,7 @@ import (
 	corev1beta1 "github.com/aws/karpenter-core/pkg/apis/v1beta1"
 	"github.com/aws/karpenter/pkg/apis/v1beta1"
 	awscache "github.com/aws/karpenter/pkg/cache"
+	iprovider "github.com/aws/karpenter/pkg/providers"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/ec2"
@@ -36,7 +37,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	"knative.dev/pkg/logging"
 
-	"github.com/aws/karpenter/pkg/providers/pricing"
 	"github.com/aws/karpenter/pkg/providers/subnet"
 
 	"github.com/aws/karpenter-core/pkg/cloudprovider"
@@ -52,7 +52,7 @@ type Provider struct {
 	region          string
 	ec2api          ec2iface.EC2API
 	subnetProvider  *subnet.Provider
-	pricingProvider *pricing.Provider
+	pricingProvider iprovider.IPricingProvider
 	// Has one cache entry for all the instance types (key: InstanceTypesCacheKey)
 	// Has one cache entry for all the zones for each subnet selector (key: InstanceTypesZonesCacheKeyPrefix:<hash_of_selector>)
 	// Values cached *before* considering insufficient capacity errors from the unavailableOfferings cache.
@@ -69,7 +69,7 @@ type Provider struct {
 }
 
 func NewProvider(region string, cache *cache.Cache, ec2api ec2iface.EC2API, subnetProvider *subnet.Provider,
-	unavailableOfferingsCache *awscache.UnavailableOfferings, pricingProvider *pricing.Provider) *Provider {
+	unavailableOfferingsCache *awscache.UnavailableOfferings, pricingProvider iprovider.IPricingProvider) *Provider {
 	return &Provider{
 		ec2api:               ec2api,
 		region:               region,
@@ -127,7 +127,7 @@ func (p *Provider) LivenessProbe(req *http.Request) error {
 	return p.pricingProvider.LivenessProbe(req)
 }
 
-// TODO @JacobValdemar: se
+// JANOTE: se
 func (p *Provider) createOfferings(ctx context.Context, instanceType *ec2.InstanceTypeInfo, zones sets.Set[string]) []cloudprovider.Offering {
 	var offerings []cloudprovider.Offering
 	for zone := range zones {

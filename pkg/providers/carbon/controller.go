@@ -12,7 +12,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package pricing
+package carbon
 
 import (
 	"context"
@@ -42,7 +42,7 @@ func (c *Controller) Reconcile(ctx context.Context, _ reconcile.Request) (reconc
 }
 
 func (c *Controller) Name() string {
-	return "pricing"
+	return "carbon"
 }
 
 func (c *Controller) Builder(_ context.Context, m manager.Manager) corecontroller.Builder {

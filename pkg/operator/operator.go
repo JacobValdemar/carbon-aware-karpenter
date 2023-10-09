@@ -49,7 +49,10 @@ import (
 	"github.com/aws/karpenter-core/pkg/operator"
 	"github.com/aws/karpenter/pkg/apis/settings"
 	awscache "github.com/aws/karpenter/pkg/cache"
+	iprovider "github.com/aws/karpenter/pkg/providers"
+
 	"github.com/aws/karpenter/pkg/providers/amifamily"
+	"github.com/aws/karpenter/pkg/providers/carbon"
 	"github.com/aws/karpenter/pkg/providers/instance"
 	"github.com/aws/karpenter/pkg/providers/instanceprofile"
 	"github.com/aws/karpenter/pkg/providers/instancetype"
@@ -74,7 +77,7 @@ type Operator struct {
 	AMIProvider               *amifamily.Provider
 	AMIResolver               *amifamily.Resolver
 	LaunchTemplateProvider    *launchtemplate.Provider
-	PricingProvider           *pricing.Provider
+	PricingProvider           iprovider.IPricingProvider
 	VersionProvider           *version.Provider
 	InstanceTypesProvider     *instancetype.Provider
 	InstanceProvider          *instance.Provider
@@ -127,12 +130,22 @@ func NewOperator(ctx context.Context, operator *operator.Operator) (context.Cont
 	subnetProvider := subnet.NewProvider(ec2api, cache.New(awscache.DefaultTTL, awscache.DefaultCleanupInterval))
 	securityGroupProvider := securitygroup.NewProvider(ec2api, cache.New(awscache.DefaultTTL, awscache.DefaultCleanupInterval))
 	instanceProfileProvider := instanceprofile.NewProvider(*sess.Config.Region, iam.New(sess), cache.New(awscache.InstanceProfileTTL, awscache.DefaultCleanupInterval))
-	pricingProvider := pricing.NewProvider(
-		ctx,
-		pricing.NewAPI(sess, *sess.Config.Region),
-		ec2api,
-		*sess.Config.Region,
-	)
+	var pricingProvider iprovider.IPricingProvider
+	if settings.FromContext(ctx).CarbonAwareEnabled {
+		pricingProvider = carbon.NewProvider(
+			ctx,
+			pricing.NewAPI(sess, *sess.Config.Region),
+			ec2api,
+			*sess.Config.Region,
+		)
+	} else {
+		pricingProvider = pricing.NewProvider(
+			ctx,
+			pricing.NewAPI(sess, *sess.Config.Region),
+			ec2api,
+			*sess.Config.Region,
+		)
+	}
 	versionProvider := version.NewProvider(operator.KubernetesInterface, cache.New(awscache.DefaultTTL, awscache.DefaultCleanupInterval))
 	amiProvider := amifamily.NewProvider(versionProvider, ssm.New(sess), ec2api, cache.New(awscache.DefaultTTL, awscache.DefaultCleanupInterval))
 	amiResolver := amifamily.New(amiProvider)
