@@ -127,7 +127,7 @@ func (p *Provider) LivenessProbe(req *http.Request) error {
 	return p.pricingProvider.LivenessProbe(req)
 }
 
-// JANOTE: se
+// TODO @JacobValdemar: se
 func (p *Provider) createOfferings(ctx context.Context, instanceType *ec2.InstanceTypeInfo, zones sets.Set[string]) []cloudprovider.Offering {
 	var offerings []cloudprovider.Offering
 	for zone := range zones {

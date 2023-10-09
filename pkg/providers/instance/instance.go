@@ -51,7 +51,7 @@ import (
 
 var (
 	// MaxInstanceTypes defines the number of instance type options to pass to CreateFleet
-	MaxInstanceTypes                 = 60 // JANOTE: interesting
+	MaxInstanceTypes                 = 60 // TODO @JacobValdemar: interesting
 	instanceTypeFlexibilityThreshold = 5  // falling back to on-demand without flexibility risks insufficient capacity errors
 
 	instanceStateFilter = &ec2.Filter{
@@ -85,12 +85,12 @@ func NewProvider(ctx context.Context, region string, ec2api ec2iface.EC2API, una
 
 func (p *Provider) Create(ctx context.Context, nodeClass *v1beta1.EC2NodeClass, nodeClaim *corev1beta1.NodeClaim, instanceTypes []*cloudprovider.InstanceType) (*Instance, error) {
 	instanceTypes = p.filterInstanceTypes(nodeClaim, instanceTypes)
-	instanceTypes = orderInstanceTypesByPrice(instanceTypes, scheduling.NewNodeSelectorRequirements(nodeClaim.Spec.Requirements...)) // JANOTE: see
+	instanceTypes = orderInstanceTypesByPrice(instanceTypes, scheduling.NewNodeSelectorRequirements(nodeClaim.Spec.Requirements...)) // TODO @JacobValdemar: see
 	if len(instanceTypes) > MaxInstanceTypes {
 		instanceTypes = instanceTypes[0:MaxInstanceTypes]
 	}
 	tags := getTags(ctx, nodeClass, nodeClaim)
-	fleetInstance, err := p.launchInstance(ctx, nodeClass, nodeClaim, instanceTypes, tags) // JANOTE
+	fleetInstance, err := p.launchInstance(ctx, nodeClass, nodeClaim, instanceTypes, tags) // TODO @JacobValdemar: see
 	if awserrors.IsLaunchTemplateNotFound(err) {
 		// retry once if launch template is not found. This allows karpenter to generate a new LT if the
 		// cache was out-of-sync on the first try
@@ -222,7 +222,7 @@ func (p *Provider) launchInstance(ctx context.Context, nodeClass *v1beta1.EC2Nod
 			{ResourceType: aws.String(ec2.ResourceTypeFleet), Tags: utils.MergeTags(tags)},
 		},
 	}
-	// JANOTE: here fleet is created. Use prioritized instead?
+	// TODO @JacobValdemar: here fleet is created. Use prioritized instead?
 	if capacityType == corev1beta1.CapacityTypeSpot {
 		createFleetInput.SpotOptions = &ec2.SpotOptionsRequest{AllocationStrategy: aws.String(ec2.SpotAllocationStrategyPriceCapacityOptimized)}
 	} else {
@@ -389,7 +389,7 @@ func (p *Provider) getCapacityType(nodeClaim *corev1beta1.NodeClaim, instanceTyp
 	return corev1beta1.CapacityTypeOnDemand
 }
 
-// JANOTE: see
+// TODO @JacobValdemar: see
 func orderInstanceTypesByPrice(instanceTypes []*cloudprovider.InstanceType, requirements scheduling.Requirements) []*cloudprovider.InstanceType {
 	// Order instance types so that we get the cheapest instance types of the available offerings
 	sort.Slice(instanceTypes, func(i, j int) bool {
