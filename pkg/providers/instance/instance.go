@@ -233,6 +233,8 @@ func (p *Provider) launchInstance(ctx context.Context, nodeClass *v1beta1.EC2Nod
 		}
 	}
 
+	logging.FromContext(ctx).Debugf("%#v", createFleetInput)
+
 	createFleetOutput, err := p.ec2Batcher.CreateFleet(ctx, createFleetInput)
 	p.subnetProvider.UpdateInflightIPs(createFleetInput, createFleetOutput, instanceTypes, lo.Values(zonalSubnets), capacityType)
 	if err != nil {
@@ -345,7 +347,7 @@ func (p *Provider) getOverrides(instanceTypes []*cloudprovider.InstanceType, zon
 	}
 
 	var overrides []*ec2.FleetLaunchTemplateOverridesRequest
-	for i, offering := range unwrappedOfferings {
+	for _, offering := range unwrappedOfferings {
 		if capacityType != offering.CapacityType {
 			continue
 		}
@@ -362,7 +364,7 @@ func (p *Provider) getOverrides(instanceTypes []*cloudprovider.InstanceType, zon
 			// This is technically redundant, but is useful if we have to parse insufficient capacity errors from
 			// CreateFleet so that we can figure out the zone rather than additional API calls to look up the subnet
 			AvailabilityZone: subnet.AvailabilityZone,
-			Priority:         aws.Float64(float64(i)), // Only used when Carbon Aware is enabled
+			Priority:         aws.Float64(offering.Price), // Only used when Carbon Aware is enabled
 		})
 
 		// TODO @JacobValdemar: https://github.com/aws/karpenter/blob/v0.14.0/pkg/cloudprovider/aws/instance.go#L268
