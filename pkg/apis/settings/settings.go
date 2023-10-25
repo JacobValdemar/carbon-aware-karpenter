@@ -42,7 +42,7 @@ var defaultSettings = &Settings{
 	InterruptionQueueName:      "",
 	Tags:                       map[string]string{},
 	ReservedENIs:               0,
-	CarbonAwareEnabled:         false,
+	CarbonAwareEnabled:         true, // TODO @JacobValdemar: Set default as false when releasing
 }
 
 // +k8s:deepcopy-gen=true

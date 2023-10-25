@@ -81,6 +81,9 @@ topologySpreadConstraints:
 tolerations:
   - key: CriticalAddonsOnly
     operator: Exists
+  - key: node.kubernetes.io/unschedulable # TODO @JacobValdemar: Remove this toleration
+    effect: NoSchedule
+    operator: Exists
 # -- Additional volumes for the pod.
 extraVolumes: []
 # - name: aws-iam-token

@@ -24,6 +24,7 @@ import (
 
 	awscache "github.com/aws/karpenter/pkg/cache"
 	"github.com/aws/karpenter/pkg/fake"
+	iprovider "github.com/aws/karpenter/pkg/providers"
 	"github.com/aws/karpenter/pkg/providers/amifamily"
 	"github.com/aws/karpenter/pkg/providers/instance"
 	"github.com/aws/karpenter/pkg/providers/instanceprofile"
@@ -62,7 +63,7 @@ type Environment struct {
 	SubnetProvider          *subnet.Provider
 	SecurityGroupProvider   *securitygroup.Provider
 	InstanceProfileProvider *instanceprofile.Provider
-	PricingProvider         *pricing.Provider
+	PricingProvider         iprovider.IPricingProvider
 	AMIProvider             *amifamily.Provider
 	AMIResolver             *amifamily.Resolver
 	VersionProvider         *version.Provider
@@ -87,6 +88,7 @@ func NewEnvironment(ctx context.Context, env *coretest.Environment) *Environment
 	fakePricingAPI := &fake.PricingAPI{}
 
 	// Providers
+	//pricingProvider := carbon.NewProvider(ctx, fakePricingAPI, ec2api, fake.DefaultRegion)
 	pricingProvider := pricing.NewProvider(ctx, fakePricingAPI, ec2api, fake.DefaultRegion)
 	subnetProvider := subnet.NewProvider(ec2api, subnetCache)
 	securityGroupProvider := securitygroup.NewProvider(ec2api, securityGroupCache)

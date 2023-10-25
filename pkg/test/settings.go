@@ -54,5 +54,6 @@ func Settings(overrides ...SettingOptions) *awssettings.Settings {
 		InterruptionQueueName:      lo.FromPtrOr(options.InterruptionQueueName, ""),
 		Tags:                       options.Tags,
 		ReservedENIs:               lo.FromPtrOr(options.ReservedENIs, 0),
+		//CarbonAwareEnabled:         true, // TODO @JacobValdemar: Remove
 	}
 }

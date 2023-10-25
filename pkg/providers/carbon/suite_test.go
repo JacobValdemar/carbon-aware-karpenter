@@ -32,23 +32,22 @@ import (
 	coresettings "github.com/aws/karpenter-core/pkg/apis/settings"
 	"github.com/aws/karpenter-core/pkg/operator/injection"
 	"github.com/aws/karpenter-core/pkg/operator/options"
-	"github.com/aws/karpenter-core/pkg/operator/scheme"
 	. "github.com/aws/karpenter-core/pkg/test/expectations"
 
 	coretest "github.com/aws/karpenter-core/pkg/test"
-	"github.com/aws/karpenter/pkg/apis"
 	"github.com/aws/karpenter/pkg/apis/settings"
 	"github.com/aws/karpenter/pkg/fake"
-	"github.com/aws/karpenter/pkg/providers/pricing"
+	"github.com/aws/karpenter/pkg/providers/carbon"
 	"github.com/aws/karpenter/pkg/test"
 )
 
 var ctx context.Context
 var stop context.CancelFunc
 var opts options.Options
+
 var env *coretest.Environment
 var awsEnv *test.Environment
-var controller *pricing.Controller
+var controller *carbon.Controller
 
 func TestAWS(t *testing.T) {
 	ctx = TestContextWithLogger(t)
@@ -57,12 +56,12 @@ func TestAWS(t *testing.T) {
 }
 
 var _ = BeforeSuite(func() {
-	env = coretest.NewEnvironment(scheme.Scheme, coretest.WithCRDs(apis.CRDs...))
+	//env = coretest.NewEnvironment(scheme.Scheme, coretest.WithCRDs(apis.CRDs...))
 	ctx = coresettings.ToContext(ctx, coretest.Settings())
 	ctx = settings.ToContext(ctx, test.Settings())
 	ctx, stop = context.WithCancel(ctx)
 	awsEnv = test.NewEnvironment(ctx, env)
-	controller = pricing.NewController(awsEnv.PricingProvider)
+	controller = carbon.NewController(awsEnv.PricingProvider)
 })
 
 var _ = AfterSuite(func() {
@@ -82,7 +81,7 @@ var _ = AfterEach(func() {
 	ExpectCleanedUp(ctx, env.Client)
 })
 
-var _ = Describe("Pricing", func() {
+var _ = Describe("Carbon Pricing", func() {
 	It("should return static on-demand data if pricing API fails", func() {
 		awsEnv.PricingAPI.NextError.Set(fmt.Errorf("failed"))
 		ExpectReconcileFailed(ctx, controller, types.NamespacedName{})
@@ -264,10 +263,10 @@ var _ = Describe("Pricing", func() {
 func getPricingEstimateMetricValue(instanceType string, capacityType string, zone string) float64 {
 	var value *float64
 	metric, ok := FindMetricWithLabelValues("karpenter_cloudprovider_instance_type_price_estimate", map[string]string{
-		pricing.InstanceTypeLabel: instanceType,
-		pricing.CapacityTypeLabel: capacityType,
-		pricing.RegionLabel:       fake.DefaultRegion,
-		pricing.TopologyLabel:     zone,
+		carbon.InstanceTypeLabel: instanceType,
+		carbon.CapacityTypeLabel: capacityType,
+		carbon.RegionLabel:       fake.DefaultRegion,
+		carbon.TopologyLabel:     zone,
 	})
 	Expect(ok).To(BeTrue())
 	value = metric.GetGauge().Value

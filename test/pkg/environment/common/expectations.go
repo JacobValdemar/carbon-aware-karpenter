@@ -464,6 +464,27 @@ func (env *Environment) EventuallyExpectCreatedNodeCount(comparator string, coun
 	return createdNodes
 }
 
+func (env *Environment) EventuallyExpectCreatedThisNodeCount(comparator string, count int, instanceType string) []*v1.Node {
+	By(fmt.Sprintf("waiting for created nodes of %s to be %s to %d", instanceType, comparator, count))
+	var createdNodes []*v1.Node
+	EventuallyWithOffset(1, func(g Gomega) {
+		createdNodes = env.Monitor.CreatedNodes()
+
+		var matchingNodesCount int
+
+		for _, j := range createdNodes {
+			if j.Labels["node.kubernetes.io/instance-type"] == instanceType {
+				matchingNodesCount++
+			}
+		}
+
+		g.Expect(matchingNodesCount).To(BeNumerically(comparator, count),
+			fmt.Sprintf("expected %d created nodes of type %s, had %d (%v)", count, instanceType, matchingNodesCount, NodeNames(createdNodes)))
+
+	}).WithTimeout(time.Minute).Should(Succeed())
+	return createdNodes
+}
+
 func (env *Environment) EventuallyExpectDeletedNodeCount(comparator string, count int) []*v1.Node {
 	GinkgoHelper()
 	By(fmt.Sprintf("waiting for deleted nodes to be %s to %d", comparator, count))

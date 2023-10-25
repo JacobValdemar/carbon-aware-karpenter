@@ -15,5 +15,7 @@ go.work.sum
 # Project Specific
 *.csv
 
+# TODO @JacobValdemar: Remove
 # My stuff
 /log*
+tmp/
