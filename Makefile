@@ -109,7 +109,7 @@ carbontest:
 		--ginkgo.focus="" \
 		--ginkgo.timeout=${TEST_TIMEOUT} \
 		--ginkgo.grace-period=3m \
-		--ginkgo.vv
+		--ginkgo.v
 
 benchmark:
 	go test -tags=test_performance -run=NoTests -bench=. ./...

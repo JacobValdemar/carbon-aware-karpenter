@@ -19,3 +19,4 @@ go.work.sum
 # My stuff
 /log*
 tmp/
+experiments/

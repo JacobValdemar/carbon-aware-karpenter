@@ -299,6 +299,7 @@ func (env *Environment) ExpectActiveKarpenterPod() *v1.Pod {
 }
 
 func (env *Environment) EventuallyExpectPendingPodCount(selector labels.Selector, numPods int) {
+	By(fmt.Sprintf("waiting for %d pods matching selector %s to be pending", numPods, selector.String()))
 	EventuallyWithOffset(1, func(g Gomega) {
 		g.Expect(env.Monitor.PendingPodsCount(selector)).To(Equal(numPods))
 	}).Should(Succeed())

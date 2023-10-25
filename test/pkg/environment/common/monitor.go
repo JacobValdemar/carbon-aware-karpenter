@@ -235,6 +235,55 @@ func (m *Monitor) nodeUtilization(resource v1.ResourceName) []float64 {
 	return utilization
 }
 
+type MyPod struct {
+	Name          string `json:"name,omitempty"`
+	CPURequest    string `json:"cpu_request,omitempty"`
+	MemoryRequest string `json:"memory_request,omitempty"`
+}
+
+type NodeUtil struct {
+	NodeName     string
+	InstanceType string
+	Pods         []MyPod
+	Utilization  float64
+}
+
+func (m *Monitor) GetNodeUtilizations(resource v1.ResourceName) []NodeUtil {
+	st := m.poll()
+	var utilization []NodeUtil
+	for nodeName, requests := range st.nodeRequests {
+		allocatable := st.nodes[nodeName].Status.Allocatable[resource]
+		// skip any nodes we didn't launch
+		if _, ok := st.nodes[nodeName].Labels[v1alpha5.ProvisionerNameLabelKey]; !ok {
+			continue
+		}
+		if allocatable.IsZero() {
+			continue
+		}
+		requested := requests[resource]
+
+		nodePods := st.nodePods[nodeName]
+		var myPods []MyPod
+		for _, nodePod := range nodePods {
+			CPUQuantity := nodePod.Spec.Containers[0].Resources.Requests[v1.ResourceCPU]
+			MemoryQuantity := nodePod.Spec.Containers[0].Resources.Requests[v1.ResourceMemory]
+			myPods = append(myPods, MyPod{
+				Name:          nodePod.Name,
+				CPURequest:    CPUQuantity.String(),
+				MemoryRequest: MemoryQuantity.String(),
+			})
+		}
+
+		utilization = append(utilization, NodeUtil{
+			NodeName:     nodeName,
+			Pods:         myPods,
+			InstanceType: st.nodes[nodeName].Labels["node.kubernetes.io/instance-type"],
+			Utilization:  requested.AsApproximateFloat64() / allocatable.AsApproximateFloat64(),
+		})
+	}
+	return utilization
+}
+
 type copyable[T any] interface {
 	DeepCopy() T
 }
