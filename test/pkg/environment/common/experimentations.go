@@ -4,12 +4,12 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
-	"time"
 
 	. "github.com/onsi/ginkgo/v2" //nolint:revive,stylecheck
+	. "github.com/onsi/gomega"    //nolint:revive,stylecheck
 )
 
-func (env *Environment) SaveTopology() {
+func (env *Environment) SaveTopology(dir string, fileName string) {
 	GinkgoHelper()
 	createdNodes := env.Monitor.CreatedNodes()
 
@@ -19,27 +19,16 @@ func (env *Environment) SaveTopology() {
 		return
 	}
 
-	timenow := time.Now().Format("2006-01-02-15-04")
-	dir := filepath.Join("tmp", timenow)
-	path := filepath.Join(dir, "nodes.json")
-
 	err = os.MkdirAll(dir, os.ModePerm)
-	if err != nil {
-		GinkgoWriter.Printf("Error os.MkdirAll: %s", err)
-		return
-	}
+	Expect(err).NotTo(HaveOccurred())
 
+	path := filepath.Join(dir, fileName)
 	f, err := os.Create(path)
-	if err != nil {
-		GinkgoWriter.Printf("Error os.Create: %s", err)
-		return
-	}
+	Expect(err).NotTo(HaveOccurred())
+
 	defer f.Close()
 	_, err = f.Write(b)
-	if err != nil {
-		GinkgoWriter.Printf("Error f.Write: %s", err)
-		return
-	}
+	Expect(err).NotTo(HaveOccurred())
 
 	f.Sync()
 

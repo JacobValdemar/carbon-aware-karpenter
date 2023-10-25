@@ -15,7 +15,8 @@ limitations under the License.
 package carbon_test
 
 import (
-	"context"
+	"fmt"
+	"path/filepath"
 	"strconv"
 	"time"
 
@@ -32,16 +33,16 @@ import (
 	"github.com/aws/karpenter/pkg/apis/v1alpha1"
 	awstest "github.com/aws/karpenter/pkg/test"
 	"github.com/aws/karpenter/test/pkg/debug"
-	"github.com/aws/karpenter/test/pkg/environment/aws"
 )
 
-const testGroup = "provisioning"
+const testGroup = "carbon"
 
 var _ = Describe("Provisioning", Label(debug.NoWatch), Label(debug.NoEvents), func() {
 	var provisioner *v1alpha5.Provisioner
 	var nodeTemplate *v1alpha1.AWSNodeTemplate
 	var deployment *appsv1.Deployment
 	var selector labels.Selector
+	var experimentDirectory string
 	//var dsCount int
 
 	BeforeEach(func() {
@@ -88,53 +89,114 @@ var _ = Describe("Provisioning", Label(debug.NoWatch), Label(debug.NoEvents), fu
 		selector = labels.SelectorFromSet(deployment.Spec.Selector.MatchLabels)
 		// Get the DS pod count and use it to calculate the DS pod overhead
 		//dsCount = env.GetDaemonSetCount(provisioner)
+
+		timenow := time.Now().Format("2006-01-02-15-04") // TODO @JacobValdemar: Make this the same for whole test run
+		experimentDirectory = filepath.Join("tmp", timenow, "Provisioning")
 	})
-	It("should scale successfully on a node-dense scale-up", Label(debug.NoEvents), func(_ context.Context) {
-		env.ExpectPrefixDelegationDisabled()
 
-		env.ExpectSettingsOverridden(map[string]string{
-			"featureGates.carbonAwareEnabled": "false",
-		})
-
-		replicasPerNode := 1
-		expectedNodeCount := 2
-		replicas := replicasPerNode * expectedNodeCount
-
-		deployment.Spec.Replicas = lo.ToPtr[int32](int32(replicas))
-		// Hostname anti-affinity to require one pod on each node
-		deployment.Spec.Template.Spec.Affinity = &v1.Affinity{
-			PodAntiAffinity: &v1.PodAntiAffinity{
-				RequiredDuringSchedulingIgnoredDuringExecution: []v1.PodAffinityTerm{
-					{
-						LabelSelector: deployment.Spec.Selector,
-						TopologyKey:   v1.LabelHostname,
+	DescribeTable("homogeneous pods",
+		func(enabled bool, replicaCount int, cpuRequest string, memoryRequest string) {
+			//It("evaluates nodes", func(_ context.Context) {
+			replicas := replicaCount
+			deployment = test.Deployment(test.DeploymentOptions{
+				PodOptions: test.PodOptions{
+					ResourceRequirements: v1.ResourceRequirements{
+						Requests: v1.ResourceList{
+							v1.ResourceCPU:    resource.MustParse(cpuRequest),
+							v1.ResourceMemory: resource.MustParse(memoryRequest),
+						},
 					},
+					TerminationGracePeriodSeconds: lo.ToPtr[int64](0),
 				},
-			},
-		}
+				Replicas: int32(replicas),
+			})
+			selector = labels.SelectorFromSet(deployment.Spec.Selector.MatchLabels)
 
-		By("waiting for the deployment to deploy all of its pods")
-		env.ExpectCreated(deployment)
-		env.EventuallyExpectPendingPodCount(selector, replicas)
+			env.ExpectPrefixDelegationDisabled()
 
-		env.MeasureProvisioningDurationFor(func() {
+			By(fmt.Sprintf("setting carbonAwareEnabled to %s", strconv.FormatBool(enabled)))
+			env.ExpectSettingsOverridden(map[string]string{
+				"featureGates.carbonAwareEnabled": strconv.FormatBool(enabled),
+			})
+
+			By("waiting for the deployment to deploy all of its pods")
+			env.ExpectCreated(deployment)
+			env.EventuallyExpectPendingPodCount(selector, replicas)
+
 			By("kicking off provisioning by applying the provisioner and nodeTemplate")
 			env.ExpectCreated(provisioner, nodeTemplate)
-
-			env.EventuallyExpectCreatedMachineCount("==", expectedNodeCount)
-			env.EventuallyExpectCreatedNodeCount("==", expectedNodeCount)
-			//env.EventuallyExpectCreatedThisNodeCount("==", expectedNodeCount, "c7a.medium")
-			env.EventuallyExpectInitializedNodeCount("==", expectedNodeCount)
 			env.EventuallyExpectHealthyPodCount(selector, replicas)
-			env.SaveTopology()
-		}, map[string]string{
-			aws.TestCategoryDimension:           testGroup,
-			aws.TestNameDimension:               "node-dense",
-			aws.ProvisionedNodeCountDimension:   strconv.Itoa(expectedNodeCount),
-			aws.DeprovisionedNodeCountDimension: strconv.Itoa(0),
-			aws.PodDensityDimension:             strconv.Itoa(replicasPerNode),
-		})
-	}, SpecTimeout(time.Minute*30))
+
+			By("saving topology")
+			var carbonAwareStatus string
+			if enabled {
+				carbonAwareStatus = "enabled"
+			} else {
+				carbonAwareStatus = "disabled"
+			}
+			experimentDirectory = filepath.Join(
+				experimentDirectory,
+				"homogeneous-pods",
+				fmt.Sprintf("%d-replicas", replicas),
+				fmt.Sprintf("cpu-%s", cpuRequest),
+				fmt.Sprintf("memory-%s", memoryRequest),
+				fmt.Sprintf("carbonAware-%s", carbonAwareStatus),
+			)
+			env.SaveTopology(experimentDirectory, "nodes.json")
+			//}, SpecTimeout(time.Minute*5))
+		},
+		EntryDescription("%d + %d = %d"),
+		Entry(nil, true),
+		Entry(nil, false),
+		//SpecTimeout(time.Minute*5),
+	)
+
+	// It("should scale successfully on a node-dense scale-up", Label(debug.NoEvents), func(_ context.Context) {
+	// 	env.ExpectPrefixDelegationDisabled()
+
+	// 	env.ExpectSettingsOverridden(map[string]string{
+	// 		"featureGates.carbonAwareEnabled": "false",
+	// 	})
+
+	// 	replicasPerNode := 1
+	// 	expectedNodeCount := 2
+	// 	replicas := replicasPerNode * expectedNodeCount
+
+	// 	deployment.Spec.Replicas = lo.ToPtr[int32](int32(replicas))
+	// 	// Hostname anti-affinity to require one pod on each node
+	// 	deployment.Spec.Template.Spec.Affinity = &v1.Affinity{
+	// 		PodAntiAffinity: &v1.PodAntiAffinity{
+	// 			RequiredDuringSchedulingIgnoredDuringExecution: []v1.PodAffinityTerm{
+	// 				{
+	// 					LabelSelector: deployment.Spec.Selector,
+	// 					TopologyKey:   v1.LabelHostname,
+	// 				},
+	// 			},
+	// 		},
+	// 	}
+
+	// 	By("waiting for the deployment to deploy all of its pods")
+	// 	env.ExpectCreated(deployment)
+	// 	env.EventuallyExpectPendingPodCount(selector, replicas)
+
+	// 	env.MeasureProvisioningDurationFor(func() {
+	// 		By("kicking off provisioning by applying the provisioner and nodeTemplate")
+	// 		env.ExpectCreated(provisioner, nodeTemplate)
+
+	// 		env.EventuallyExpectCreatedMachineCount("==", expectedNodeCount)
+	// 		env.EventuallyExpectCreatedNodeCount("==", expectedNodeCount)
+	// 		//env.EventuallyExpectCreatedThisNodeCount("==", expectedNodeCount, "c7a.medium")
+	// 		env.EventuallyExpectInitializedNodeCount("==", expectedNodeCount)
+	// 		env.EventuallyExpectHealthyPodCount(selector, replicas)
+	// 		env.SaveTopology()
+	// 	}, map[string]string{
+	// 		aws.TestCategoryDimension:           testGroup,
+	// 		aws.TestNameDimension:               "node-dense",
+	// 		aws.ProvisionedNodeCountDimension:   strconv.Itoa(expectedNodeCount),
+	// 		aws.DeprovisionedNodeCountDimension: strconv.Itoa(0),
+	// 		aws.PodDensityDimension:             strconv.Itoa(replicasPerNode),
+	// 	})
+	// }, SpecTimeout(time.Minute*30))
 
 	// It("should scale successfully on a pod-dense scale-up", func(_ context.Context) {
 	// 	replicasPerNode := 4

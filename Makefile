@@ -99,6 +99,18 @@ e2etests-deflake: ## Run the e2e suite against your local cluster
 		--vv \
 		./suites/$(shell echo $(TEST_SUITE) | tr A-Z a-z) \
 
+carbontest:
+	go test \
+		-p 1 \
+		-count 1 \
+		-timeout ${TEST_TIMEOUT} \
+		-v \
+		./test/suites/carbon/... \
+		--ginkgo.focus="" \
+		--ginkgo.timeout=${TEST_TIMEOUT} \
+		--ginkgo.grace-period=3m \
+		--ginkgo.vv
+
 benchmark:
 	go test -tags=test_performance -run=NoTests -bench=. ./...
 

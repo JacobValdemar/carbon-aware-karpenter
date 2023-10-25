@@ -26,7 +26,7 @@ import (
 
 var env *aws.Environment
 
-func TestScale(t *testing.T) {
+func TestCarbon(t *testing.T) {
 	RegisterFailHandler(Fail)
 	BeforeSuite(func() {
 		env = aws.NewEnvironment(t)
