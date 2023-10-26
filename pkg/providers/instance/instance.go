@@ -225,6 +225,7 @@ func (p *Provider) launchInstance(ctx context.Context, nodeClass *v1beta1.EC2Nod
 	// TODO @JacobValdemar: here fleet is created. Use prioritized instead?
 	if capacityType == corev1beta1.CapacityTypeSpot {
 		createFleetInput.SpotOptions = &ec2.SpotOptionsRequest{AllocationStrategy: aws.String(ec2.SpotAllocationStrategyPriceCapacityOptimized)}
+		panic("WE ARE IN SPOT AND SHOULD NOT BE HERE IN THESIS") // TODO @JacobValdemar: Remove
 	} else {
 		if settings.FromContext(ctx).CarbonAwareEnabled {
 			createFleetInput.OnDemandOptions = &ec2.OnDemandOptionsRequest{AllocationStrategy: aws.String(ec2.FleetOnDemandAllocationStrategyPrioritized)}
@@ -310,7 +311,7 @@ func (p *Provider) getLaunchTemplateConfigs(ctx context.Context, nodeClass *v1be
 	}
 	for launchTemplateName, instanceTypes := range launchTemplates {
 		launchTemplateConfig := &ec2.FleetLaunchTemplateConfigRequest{
-			Overrides: p.getOverrides(instanceTypes, zonalSubnets, scheduling.NewNodeSelectorRequirements(nodeClaim.Spec.Requirements...).Get(v1.LabelTopologyZone), capacityType),
+			Overrides: p.getOverrides(ctx, instanceTypes, zonalSubnets, scheduling.NewNodeSelectorRequirements(nodeClaim.Spec.Requirements...).Get(v1.LabelTopologyZone), capacityType),
 			LaunchTemplateSpecification: &ec2.FleetLaunchTemplateSpecificationRequest{
 				LaunchTemplateName: aws.String(launchTemplateName),
 				Version:            aws.String("$Latest"),
@@ -328,7 +329,7 @@ func (p *Provider) getLaunchTemplateConfigs(ctx context.Context, nodeClass *v1be
 
 // getOverrides creates and returns launch template overrides for the cross product of InstanceTypes and subnets (with subnets being constrained by
 // zones and the offerings in InstanceTypes)
-func (p *Provider) getOverrides(instanceTypes []*cloudprovider.InstanceType, zonalSubnets map[string]*ec2.Subnet, zones *scheduling.Requirement, capacityType string) []*ec2.FleetLaunchTemplateOverridesRequest {
+func (p *Provider) getOverrides(ctx context.Context, instanceTypes []*cloudprovider.InstanceType, zonalSubnets map[string]*ec2.Subnet, zones *scheduling.Requirement, capacityType string) []*ec2.FleetLaunchTemplateOverridesRequest {
 	// Unwrap all the offerings to a flat slice that includes a pointer
 	// to the parent instance type name
 	type offeringWithParentName struct {
@@ -358,14 +359,19 @@ func (p *Provider) getOverrides(instanceTypes []*cloudprovider.InstanceType, zon
 		if !ok {
 			continue
 		}
-		overrides = append(overrides, &ec2.FleetLaunchTemplateOverridesRequest{
+		override := &ec2.FleetLaunchTemplateOverridesRequest{
 			InstanceType: aws.String(offering.parentInstanceTypeName),
 			SubnetId:     subnet.SubnetId,
 			// This is technically redundant, but is useful if we have to parse insufficient capacity errors from
 			// CreateFleet so that we can figure out the zone rather than additional API calls to look up the subnet
 			AvailabilityZone: subnet.AvailabilityZone,
-			Priority:         aws.Float64(offering.Price), // Only used when Carbon Aware is enabled
-		})
+		}
+
+		if settings.FromContext(ctx).CarbonAwareEnabled {
+			override.Priority = aws.Float64(offering.Price)
+		}
+
+		overrides = append(overrides, override)
 
 		// TODO @JacobValdemar: https://github.com/aws/karpenter/blob/v0.14.0/pkg/cloudprovider/aws/instance.go#L268
 	}

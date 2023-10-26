@@ -25,8 +25,8 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
+	"knative.dev/pkg/ptr"
 
 	"github.com/aws/karpenter-core/pkg/apis/v1alpha5"
 	"github.com/aws/karpenter-core/pkg/test"
@@ -57,24 +57,10 @@ var _ = Describe("Provisioning", Label(debug.NoWatch), Label(debug.NoEvents), fu
 			ProviderRef: &v1alpha5.MachineTemplateRef{
 				Name: nodeTemplate.Name,
 			},
-			Requirements: []v1.NodeSelectorRequirement{
-				{
-					Key:      v1alpha5.LabelCapacityType,
-					Operator: v1.NodeSelectorOpIn,
-					Values:   []string{v1alpha1.CapacityTypeOnDemand},
-				},
-				{
-					Key:      v1.LabelOSStable,
-					Operator: v1.NodeSelectorOpIn,
-					Values:   []string{string(v1.Linux)},
-				},
-				{
-					Key:      v1alpha5.LabelCapacityType,
-					Operator: v1.NodeSelectorOpIn,
-					Values:   []string{"on-demand"},
-				},
-				env.GetAllowedInstanceCategories(),
+			Kubelet: &v1alpha5.KubeletConfiguration{
+				PodsPerCore: ptr.Int32(30),
 			},
+			Requirements: env.GetProvisionerRequirements(),
 			// No limits!!!
 			// https://tenor.com/view/chaos-gif-22919457
 			Limits: v1.ResourceList{},
@@ -91,14 +77,10 @@ var _ = Describe("Provisioning", Label(debug.NoWatch), Label(debug.NoEvents), fu
 			},
 		})
 		selector = labels.SelectorFromSet(deployment.Spec.Selector.MatchLabels)
-		// Get the DS pod count and use it to calculate the DS pod overhead
-		//dsCount = env.GetDaemonSetCount(provisioner)
-
 		experimentDirectory = filepath.Join("experiments", timenow, "Provisioning")
-
 	})
 
-	DescribeTable("homogeneous pods",
+	PDescribeTable("homogeneous pods",
 		func(carbonAwareEnabled bool, replicaCount int, cpuRequest string, memoryRequest string) {
 			replicas := replicaCount
 			deployment = test.Deployment(test.DeploymentOptions{
@@ -141,55 +123,19 @@ var _ = Describe("Provisioning", Label(debug.NoWatch), Label(debug.NoEvents), fu
 			env.SaveTopology(experimentDirectory, "nodes.json")
 		},
 		EntryDescription("CarbonAwareEnabled=%t, replicas=%d, CPU=%s, memory=%s"),
-		// Entry(nil, true, 2, "10m", "50Mi"),
+		// Entry(nil, true, 2, "50m", "50Mi"),
 		// Entry(nil, true, 7, "150m", "50Mi"),
 		// Entry(nil, true, 3, "350m", "50Mi"),
-		Entry(nil, true, 3, "675m", "100Mi"),
-		// Entry(nil, false, 2, "10m", "50Mi"),
+		// Entry(nil, true, 3, "675m", "100Mi"),
+		// Entry(nil, false, 2, "50m", "50Mi"),
 		// Entry(nil, false, 7, "150m", "50Mi"),
 		// Entry(nil, false, 3, "350m", "50Mi"),
-		Entry(nil, false, 3, "675m", "100Mi"),
+		// Entry(nil, false, 3, "675m", "100Mi"),
 	)
 
 	PDescribeTable("hetrogeneous pods",
 		func(carbonAwareEnabled bool, fileName string) {
-			var pods []*v1.Pod
-
-			By(fmt.Sprintf("loading pod topology from %s.json", fileName))
-			inputPods := env.ImportPodTopologyTestInput(path.Join("experiments", "testInput"), fileName+".json")
-			for _, inputPod := range inputPods {
-				var requests v1.ResourceList
-				if inputPod.MemoryRequest == "" && inputPod.CPURequest == "" {
-					requests = v1.ResourceList{}
-				} else if inputPod.MemoryRequest != "" && inputPod.CPURequest == "" {
-					requests = v1.ResourceList{
-						v1.ResourceMemory: resource.MustParse(inputPod.MemoryRequest),
-					}
-				} else if inputPod.MemoryRequest == "" && inputPod.CPURequest != "" {
-					requests = v1.ResourceList{
-						v1.ResourceCPU: resource.MustParse(inputPod.CPURequest),
-					}
-				} else {
-					requests = v1.ResourceList{
-						v1.ResourceCPU:    resource.MustParse(inputPod.CPURequest),
-						v1.ResourceMemory: resource.MustParse(inputPod.MemoryRequest),
-					}
-				}
-
-				label := map[string]string{"testing/pod-app": "loaded"}
-				selector = labels.SelectorFromSet(label)
-				pods = append(pods, test.Pod(test.PodOptions{
-					ObjectMeta: metav1.ObjectMeta{
-						Annotations: map[string]string{
-							v1alpha5.DoNotEvictPodAnnotationKey: "true",
-						},
-						Labels: label,
-					},
-					ResourceRequirements: v1.ResourceRequirements{
-						Requests: requests,
-					},
-				}))
-			}
+			pods, selector := env.ImportPodTopologyTestInput(path.Join("experiments", "testInput"), fileName+".json")
 
 			By(fmt.Sprintf("setting carbonAwareEnabled to %s", strconv.FormatBool(carbonAwareEnabled)))
 			env.ExpectSettingsOverridden(map[string]string{
@@ -200,16 +146,12 @@ var _ = Describe("Provisioning", Label(debug.NoWatch), Label(debug.NoEvents), fu
 			for _, pod := range pods {
 				env.ExpectCreated(pod)
 			}
-			env.EventuallyExpectPendingPodCount(selector, len(pods)) // TODO @JacobValdemar: Probably an one-off error here with len
+			env.EventuallyExpectPendingPodCount(selector, len(pods))
 
 			By("kicking off provisioning by applying the provisioner and nodeTemplate")
-			// // test start
-			// provisioner.Spec.Consolidation = &v1alpha5.Consolidation{
-			// 	Enabled: aws.Bool(true),
-			// }
-			// test end
 			env.ExpectCreated(provisioner, nodeTemplate)
-			env.EventuallyExpectHealthyPodCount(selector, len(pods)) // TODO @JacobValdemar: Probably an one-off error here with len
+			env.EventuallyExpectNodeCount(">", 0)
+			env.EventuallyExpectPendingPodCount(selector, 0)
 
 			experimentDirectory = filepath.Join(
 				experimentDirectory,
@@ -220,10 +162,10 @@ var _ = Describe("Provisioning", Label(debug.NoWatch), Label(debug.NoEvents), fu
 			env.SaveTopology(experimentDirectory, "nodes.json")
 
 		},
-		//EntryDescription("CarbonAwareEnabled=%t, podTopologyInputFile=%s.json"),
+		EntryDescription("CarbonAwareEnabled=%t, podTopologyInputFile=%s.json"),
 		// Entry(nil, true, "observed-pod-topology1"),
 		// Entry(nil, false, "observed-pod-topology1"),
-		// Entry(nil, true, "observed-pod-topology2"),
+		Entry(nil, true, "observed-pod-topology2"),
 		// Entry(nil, false, "observed-pod-topology2"),
 	)
 

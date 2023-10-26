@@ -2,6 +2,7 @@ package carbon_test
 
 import (
 	"fmt"
+	"path"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -14,154 +15,232 @@ import (
 	"github.com/aws/karpenter/pkg/apis/v1alpha1"
 	awstest "github.com/aws/karpenter/pkg/test"
 	"github.com/aws/karpenter/test/pkg/debug"
+	"github.com/samber/lo"
+	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
+	"knative.dev/pkg/ptr"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
 
+const WaitForConsolidation int = -1
+
 var _ = Describe("Consolidation", Label(debug.NoWatch), Label(debug.NoEvents), func() {
 	var timenow string = time.Now().Format("2006-01-02-15-04")
 	var experimentDirectory string
+	var provider *v1alpha1.AWSNodeTemplate
+	var provisioner *v1alpha5.Provisioner
 
 	BeforeEach(func() {
 		experimentDirectory = filepath.Join("experiments", timenow, "Consolidation")
+
+		provider = awstest.AWSNodeTemplate(v1alpha1.AWSNodeTemplateSpec{AWS: v1alpha1.AWS{
+			SecurityGroupSelector: map[string]string{"karpenter.sh/discovery": settings.FromContext(env.Context).ClusterName},
+			SubnetSelector:        map[string]string{"karpenter.sh/discovery": settings.FromContext(env.Context).ClusterName},
+		}})
+		provisioner = test.Provisioner(test.ProvisionerOptions{
+			Requirements: env.GetProvisionerRequirements(),
+			ProviderRef:  &v1alpha5.MachineTemplateRef{Name: provider.Name},
+			Kubelet: &v1alpha5.KubeletConfiguration{
+				PodsPerCore: ptr.Int32(30),
+			},
+			Consolidation: &v1alpha5.Consolidation{
+				Enabled: aws.Bool(true),
+			},
+			TTLSecondsAfterEmpty: nil,
+		})
 	})
 
-	PDescribeTable("should consolidate nodes (replace)", func(carbonAwareEnabled bool) {
+	PDescribeTable("should consolidate nodes (replace)", func(carbonAwareEnabled bool, fileName string) {
+		var pods []*v1.Pod
 		experimentDirectory = filepath.Join(
 			experimentDirectory,
 			"consolidate-nodes",
 			fmt.Sprintf("carbonAware-%t", carbonAwareEnabled),
 		)
-		provider := awstest.AWSNodeTemplate(v1alpha1.AWSNodeTemplateSpec{AWS: v1alpha1.AWS{
-			SecurityGroupSelector: map[string]string{"karpenter.sh/discovery": settings.FromContext(env.Context).ClusterName},
-			SubnetSelector:        map[string]string{"karpenter.sh/discovery": settings.FromContext(env.Context).ClusterName},
-		}})
-		provisioner := test.Provisioner(test.ProvisionerOptions{
-			Requirements: []v1.NodeSelectorRequirement{
-				{
-					Key:      v1alpha5.LabelCapacityType,
-					Operator: v1.NodeSelectorOpIn,
-					Values:   []string{"on-demand"},
-				},
-				{
-					Key:      v1alpha1.LabelInstanceSize,
-					Operator: v1.NodeSelectorOpIn,
-					Values:   []string{"large", "2xlarge"},
-				},
-				env.GetAllowedInstanceCategories(),
-			},
-			ProviderRef: &v1alpha5.MachineTemplateRef{Name: provider.Name},
-		})
 
-		var numPods int32 = 3
-		largeDep := test.Deployment(test.DeploymentOptions{
-			Replicas: numPods,
-			PodOptions: test.PodOptions{
-				ObjectMeta: metav1.ObjectMeta{
-					Labels: map[string]string{"app": "large-app"},
-				},
-				TopologySpreadConstraints: []v1.TopologySpreadConstraint{
-					{
-						MaxSkew:           1,
-						TopologyKey:       v1.LabelHostname,
-						WhenUnsatisfiable: v1.DoNotSchedule,
-						LabelSelector: &metav1.LabelSelector{
-							MatchLabels: map[string]string{
-								"app": "large-app",
-							},
-						},
-					},
-				},
-				ResourceRequirements: v1.ResourceRequirements{
-					Requests: v1.ResourceList{v1.ResourceCPU: resource.MustParse("4")},
-				},
-			},
-		})
-		smallDep := test.Deployment(test.DeploymentOptions{
-			Replicas: numPods,
-			PodOptions: test.PodOptions{
-				ObjectMeta: metav1.ObjectMeta{
-					Labels: map[string]string{"app": "small-app"},
-				},
-				TopologySpreadConstraints: []v1.TopologySpreadConstraint{
-					{
-						MaxSkew:           1,
-						TopologyKey:       v1.LabelHostname,
-						WhenUnsatisfiable: v1.DoNotSchedule,
-						LabelSelector: &metav1.LabelSelector{
-							MatchLabels: map[string]string{
-								"app": "small-app",
-							},
-						},
-					},
-				},
-				ResourceRequirements: v1.ResourceRequirements{
-					Requests: v1.ResourceList{v1.ResourceCPU: resource.MustParse("1.5")},
-				},
-			},
-		})
-		selector := labels.SelectorFromSet(largeDep.Spec.Selector.MatchLabels)
+		pods, selector := env.ImportPodTopologyTestInput(path.Join("experiments", "testInput"), fileName+".json")
 
 		By(fmt.Sprintf("setting carbonAwareEnabled to %s", strconv.FormatBool(carbonAwareEnabled)))
 		env.ExpectSettingsOverridden(map[string]string{
 			"featureGates.carbonAwareEnabled": strconv.FormatBool(carbonAwareEnabled),
 		})
 
-		env.ExpectCreated(provisioner, provider, largeDep, smallDep)
+		By("waiting for pods to be deployed")
+		for _, pod := range pods {
+			env.ExpectCreated(pod)
+		}
+		env.EventuallyExpectPendingPodCount(selector, len(pods)) // TODO @JacobValdemar: Probably an one-off error here with len
 
-		env.EventuallyExpectHealthyPodCount(selector, int(numPods))
-
-		// 3 nodes due to the anti-affinity rules
-		env.ExpectCreatedNodeCount("==", 3)
+		By("kicking off provisioning by applying the provisioner and nodeTemplate")
+		env.ExpectCreated(provisioner, provider)
+		env.EventuallyExpectHealthyPodCount(selector, len(pods))
 		env.SaveTopology(experimentDirectory, "nodesBeforeConsolidation.json")
 
-		// scaling down the large deployment leaves only small pods on each node
-		largeDep.Spec.Replicas = aws.Int32(0)
-		env.ExpectUpdated(largeDep)
-		env.EventuallyExpectAvgUtilization(v1.ResourceCPU, "<", 0.5)
-
-		provisioner.Spec.TTLSecondsAfterEmpty = nil
-		provisioner.Spec.Consolidation = &v1alpha5.Consolidation{
-			Enabled: aws.Bool(true),
-		}
-		env.ExpectUpdated(provisioner)
-
-		// With consolidation enabled, we now must replace each node in turn to consolidate due to the anti-affinity
-		// rules on the smaller deployment.  The 2xl nodes should go to a large
-		env.EventuallyExpectAvgUtilization(v1.ResourceCPU, ">", 0.8)
-
-		var nodes v1.NodeList
-		Expect(env.Client.List(env.Context, &nodes)).To(Succeed())
-		numLargeNodes := 0
-		numOtherNodes := 0
-		for _, n := range nodes.Items {
-			// only count the nodes created by the provisoiner
-			if n.Labels[v1alpha5.ProvisionerNameLabelKey] != provisioner.Name {
-				continue
-			}
-			if strings.HasSuffix(n.Labels[v1.LabelInstanceTypeStable], ".large") {
-				numLargeNodes++
-			} else {
-				numOtherNodes++
-			}
-		}
-
-		// all of the 2xlarge nodes should have been replaced with large instance types
-		Expect(numLargeNodes).To(Equal(3))
-		// and we should have no other nodes
-		Expect(numOtherNodes).To(Equal(0))
-
-		env.SaveTopology(experimentDirectory, "nodesAfterConsolidation.json")
-
-		env.ExpectDeleted(largeDep, smallDep)
+		// for _, pod := range pods {
+		// 	env.ExpectDeleted(pod)
+		// }
 	},
-		EntryDescription("CarbonAwareEnabled=%t"),
-	// Entry(nil, true),
-	// Entry(nil, false),
+		EntryDescription("CarbonAwareEnabled=%t, podTopologyInputFile=%s.json"),
+		//Entry(nil, true, "observed-pod-topology2"),
+		//Entry(nil, false, "observed-pod-topology2"),
 	)
+
+	Context("should consolidate homogeneous nodes", func() {
+		var replicas int32
+		var deployment *appsv1.Deployment
+		var selector labels.Selector
+
+		BeforeEach(func() {
+			carbonAwareEnabled := true
+
+			experimentDirectory = filepath.Join(
+				experimentDirectory,
+				"consolidate-homogeneous-nodes",
+			)
+
+			replicas = int32(2)
+			deployment = test.Deployment(test.DeploymentOptions{
+				PodOptions: test.PodOptions{
+					ResourceRequirements: v1.ResourceRequirements{
+						Requests: v1.ResourceList{
+							v1.ResourceCPU:    resource.MustParse("1"),
+							v1.ResourceMemory: resource.MustParse("100Mi"),
+						},
+					},
+					TerminationGracePeriodSeconds: lo.ToPtr[int64](0),
+				},
+				Replicas: replicas,
+			})
+			selector = labels.SelectorFromSet(deployment.Spec.Selector.MatchLabels)
+
+			By(fmt.Sprintf("setting carbonAwareEnabled to %s", strconv.FormatBool(carbonAwareEnabled)))
+			env.ExpectSettingsOverridden(map[string]string{
+				"featureGates.carbonAwareEnabled": strconv.FormatBool(carbonAwareEnabled),
+			})
+
+			By("kicking off provisioning by applying the provisioner and nodeTemplate")
+			env.ExpectCreated(provisioner, provider)
+		})
+
+		PIt("scaling deployment 2->5->7", func() {
+			experimentDirectory = filepath.Join(
+				experimentDirectory,
+				"2-5-7",
+			)
+
+			By("waiting for pods to be deployed")
+			env.ExpectCreated(deployment)
+			env.EventuallyExpectHealthyPodCount(selector, int(replicas))
+			env.SaveTopology(experimentDirectory, fmt.Sprintf("nodesAt%dReplicas.json", replicas))
+
+			replicas = 5
+			By(fmt.Sprintf("scaling deployment to %d replicas", replicas))
+			deployment.Spec.Replicas = ptr.Int32(replicas)
+			env.ExpectUpdated(deployment)
+			env.EventuallyExpectHealthyPodCount(selector, int(replicas))
+			env.SaveTopology(experimentDirectory, fmt.Sprintf("nodesAt%dReplicas.json", replicas))
+
+			replicas = 7
+			By(fmt.Sprintf("scaling deployment to %d replicas", replicas))
+			deployment.Spec.Replicas = ptr.Int32(replicas)
+			env.ExpectUpdated(deployment)
+			env.EventuallyExpectHealthyPodCount(selector, int(replicas))
+			env.SaveTopology(experimentDirectory, fmt.Sprintf("nodesAt%dReplicas.json", replicas))
+		})
+
+		DescribeTable("scaling deployment", func(testList []int) {
+			experimentDirectory = filepath.Join(
+				experimentDirectory,
+				strings.Trim(strings.Join(strings.Fields(fmt.Sprint(testList)), "-"), "[]"),
+			)
+			var consolidationCount int
+
+			By("waiting for pods to be deployed")
+			env.ExpectCreated(deployment)
+			env.EventuallyExpectHealthyPodCount(selector, int(replicas))
+			env.SaveTopology(experimentDirectory, fmt.Sprintf("nodesAt%dReplicas.json", replicas))
+
+			// TODO: Jeg skal bare give den tid til at consolidere efter hver gang. Så den har mulighed hvis den vil.
+			for _, newReplicaCount := range testList {
+				if newReplicaCount == WaitForConsolidation {
+					By("waiting for consolidation")
+					consolidationCount++
+					nodesAtLast := env.Monitor.CreatedNodes()
+					Eventually(func(g Gomega) {
+						currentNodes := env.Monitor.CreatedNodes()
+						g.Expect(len(currentNodes)).To(BeNumerically("<", len(nodesAtLast)))
+					}).WithTimeout(3 * time.Minute).WithOffset(1).Should(Succeed())
+					env.EventuallyExpectHealthyPodCount(selector, int(replicas))
+					env.SaveTopology(experimentDirectory, fmt.Sprintf("nodesWhenConsolidated%d.json", consolidationCount))
+					continue
+				}
+
+				replicas = int32(newReplicaCount)
+				By(fmt.Sprintf("scaling deployment to %d replicas", replicas))
+				deployment.Spec.Replicas = ptr.Int32(replicas)
+				env.ExpectUpdated(deployment)
+				env.EventuallyExpectHealthyPodCount(selector, int(replicas))
+				env.SaveTopology(experimentDirectory, fmt.Sprintf("nodesAt%dReplicas.json", replicas))
+			}
+
+		},
+			//Entry(nil, []int{3, 4, 10, WaitForConsolidation}),
+			Entry(nil, []int{3, 4, 5, 7, WaitForConsolidation, 10, WaitForConsolidation}),
+		)
+
+		PIt("setting replica count to 7", func() {
+			experimentDirectory = filepath.Join(
+				experimentDirectory,
+				"7",
+			)
+
+			replicas = 7
+			By(fmt.Sprintf("scaling deployment to %d replicas", replicas))
+			deployment.Spec.Replicas = ptr.Int32(replicas)
+
+			By("waiting for pods to be deployed")
+			env.ExpectCreated(deployment)
+			env.EventuallyExpectHealthyPodCount(selector, int(replicas))
+			env.SaveTopology(experimentDirectory, fmt.Sprintf("nodesAt%dReplicas.json", replicas))
+		})
+
+		PIt("scaling deployment 2->5->7->wait", func() {
+			experimentDirectory = filepath.Join(
+				experimentDirectory,
+				"2-5-7",
+			)
+
+			By("waiting for pods to be deployed")
+			env.ExpectCreated(deployment)
+			env.EventuallyExpectHealthyPodCount(selector, int(replicas))
+			env.SaveTopology(experimentDirectory, fmt.Sprintf("nodesAt%dReplicas.json", replicas))
+
+			replicas = 5
+			By(fmt.Sprintf("scaling deployment to %d replicas", replicas))
+			deployment.Spec.Replicas = ptr.Int32(replicas)
+			env.ExpectUpdated(deployment)
+			env.EventuallyExpectHealthyPodCount(selector, int(replicas))
+			env.SaveTopology(experimentDirectory, fmt.Sprintf("nodesAt%dReplicas.json", replicas))
+
+			replicas = 7
+			By(fmt.Sprintf("scaling deployment to %d replicas", replicas))
+			deployment.Spec.Replicas = ptr.Int32(replicas)
+			env.ExpectUpdated(deployment)
+			env.EventuallyExpectHealthyPodCount(selector, int(replicas))
+			env.SaveTopology(experimentDirectory, fmt.Sprintf("nodesAt%dReplicas.json", replicas))
+
+			By("waiting for consolidation")
+			nodesAtSeven := env.Monitor.CreatedNodes()
+			Eventually(func(g Gomega) {
+				currentNodes := env.Monitor.CreatedNodes()
+				g.Expect(len(currentNodes)).To(BeNumerically("<", len(nodesAtSeven)))
+			}).WithTimeout(10 * time.Minute).WithOffset(1).Should(Succeed())
+			env.SaveTopology(experimentDirectory, "nodesWhenConsolidated.json")
+		})
+	})
+
 })

@@ -98,7 +98,7 @@ func (env *Environment) Cleanup() {
 
 func (env *Environment) AfterEach() {
 	debug.AfterEach(env.Context)
-	//env.printControllerLogs(&v1.PodLogOptions{Container: "controller"}) // TODO @JacobValdemar: Uncomment this again
+	// env.printControllerLogs(&v1.PodLogOptions{Container: "controller"}) // TODO @JacobValdemar: Uncomment this again
 }
 
 func (env *Environment) CleanupObjects(cleanableObjects ...client.Object) {

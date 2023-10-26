@@ -664,7 +664,3 @@ func (env *Environment) GetDaemonSetCount(prov *v1alpha5.Provisioner) int {
 		return true
 	})
 }
-
-// func (env *Environment) EventuallyExpectExperimentPerformed(deployment *appsv1.Deployment, selector labels.Selector, replicas int) {
-
-// }
