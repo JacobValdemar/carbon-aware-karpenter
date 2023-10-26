@@ -21,7 +21,6 @@ import (
 	"strconv"
 	"time"
 
-	. "github.com/onsi/ginkgo/v2"
 	"github.com/samber/lo"
 	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
@@ -35,9 +34,10 @@ import (
 	"github.com/aws/karpenter/pkg/apis/v1alpha1"
 	awstest "github.com/aws/karpenter/pkg/test"
 	"github.com/aws/karpenter/test/pkg/debug"
-)
 
-const testGroup = "carbon"
+	. "github.com/onsi/ginkgo/v2"
+	//. "github.com/onsi/gomega"
+)
 
 var _ = Describe("Provisioning", Label(debug.NoWatch), Label(debug.NoEvents), func() {
 	var provisioner *v1alpha5.Provisioner
@@ -68,11 +68,12 @@ var _ = Describe("Provisioning", Label(debug.NoWatch), Label(debug.NoEvents), fu
 					Operator: v1.NodeSelectorOpIn,
 					Values:   []string{string(v1.Linux)},
 				},
-				// {
-				// 	Key:      "karpenter.k8s.aws/instance-hypervisor",
-				// 	Operator: v1.NodeSelectorOpIn,
-				// 	Values:   []string{"nitro"},
-				// },
+				{
+					Key:      v1alpha5.LabelCapacityType,
+					Operator: v1.NodeSelectorOpIn,
+					Values:   []string{"on-demand"},
+				},
+				env.GetAllowedInstanceCategories(),
 			},
 			// No limits!!!
 			// https://tenor.com/view/chaos-gif-22919457
@@ -98,7 +99,7 @@ var _ = Describe("Provisioning", Label(debug.NoWatch), Label(debug.NoEvents), fu
 	})
 
 	DescribeTable("homogeneous pods",
-		func(enabled bool, replicaCount int, cpuRequest string, memoryRequest string) {
+		func(carbonAwareEnabled bool, replicaCount int, cpuRequest string, memoryRequest string) {
 			replicas := replicaCount
 			deployment = test.Deployment(test.DeploymentOptions{
 				PodOptions: test.PodOptions{
@@ -116,9 +117,9 @@ var _ = Describe("Provisioning", Label(debug.NoWatch), Label(debug.NoEvents), fu
 
 			env.ExpectPrefixDelegationDisabled()
 
-			By(fmt.Sprintf("setting carbonAwareEnabled to %s", strconv.FormatBool(enabled)))
+			By(fmt.Sprintf("setting carbonAwareEnabled to %s", strconv.FormatBool(carbonAwareEnabled)))
 			env.ExpectSettingsOverridden(map[string]string{
-				"featureGates.carbonAwareEnabled": strconv.FormatBool(enabled),
+				"featureGates.carbonAwareEnabled": strconv.FormatBool(carbonAwareEnabled),
 			})
 
 			By("waiting for the deployment to deploy all of its pods")
@@ -129,36 +130,29 @@ var _ = Describe("Provisioning", Label(debug.NoWatch), Label(debug.NoEvents), fu
 			env.ExpectCreated(provisioner, nodeTemplate)
 			env.EventuallyExpectHealthyPodCount(selector, replicas)
 
-			By("saving topology")
-			var carbonAwareStatus string
-			if enabled {
-				carbonAwareStatus = "enabled"
-			} else {
-				carbonAwareStatus = "disabled"
-			}
 			experimentDirectory = filepath.Join(
 				experimentDirectory,
 				"homogeneous-pods",
 				fmt.Sprintf("%d-replicas", replicas),
 				fmt.Sprintf("cpu-%s", cpuRequest),
 				fmt.Sprintf("memory-%s", memoryRequest),
-				fmt.Sprintf("carbonAware-%s", carbonAwareStatus),
+				fmt.Sprintf("carbonAware-%t", carbonAwareEnabled),
 			)
 			env.SaveTopology(experimentDirectory, "nodes.json")
 		},
 		EntryDescription("CarbonAwareEnabled=%t, replicas=%d, CPU=%s, memory=%s"),
-		//Entry(nil, true, 2, "10m", "50Mi"),
-		//Entry(nil, false, 2, "10m", "50Mi"),
-		//Entry(nil, true, 7, "150m", "50Mi"),
-		//Entry(nil, false, 7, "150m", "50Mi"),
+		// Entry(nil, true, 2, "10m", "50Mi"),
+		// Entry(nil, true, 7, "150m", "50Mi"),
 		// Entry(nil, true, 3, "350m", "50Mi"),
+		Entry(nil, true, 3, "675m", "100Mi"),
+		// Entry(nil, false, 2, "10m", "50Mi"),
+		// Entry(nil, false, 7, "150m", "50Mi"),
 		// Entry(nil, false, 3, "350m", "50Mi"),
-		// Entry(nil, true, 3, "675m", "100Mi"),
-		// Entry(nil, false, 3, "675m", "100Mi"),
+		Entry(nil, false, 3, "675m", "100Mi"),
 	)
 
-	DescribeTable("hetrogeneous pods",
-		func(enabled bool, fileName string) {
+	PDescribeTable("hetrogeneous pods",
+		func(carbonAwareEnabled bool, fileName string) {
 			var pods []*v1.Pod
 
 			By(fmt.Sprintf("loading pod topology from %s.json", fileName))
@@ -197,9 +191,9 @@ var _ = Describe("Provisioning", Label(debug.NoWatch), Label(debug.NoEvents), fu
 				}))
 			}
 
-			By(fmt.Sprintf("setting carbonAwareEnabled to %s", strconv.FormatBool(enabled)))
+			By(fmt.Sprintf("setting carbonAwareEnabled to %s", strconv.FormatBool(carbonAwareEnabled)))
 			env.ExpectSettingsOverridden(map[string]string{
-				"featureGates.carbonAwareEnabled": strconv.FormatBool(enabled),
+				"featureGates.carbonAwareEnabled": strconv.FormatBool(carbonAwareEnabled),
 			})
 
 			By("waiting for pods to be deployed")
@@ -209,26 +203,24 @@ var _ = Describe("Provisioning", Label(debug.NoWatch), Label(debug.NoEvents), fu
 			env.EventuallyExpectPendingPodCount(selector, len(pods)) // TODO @JacobValdemar: Probably an one-off error here with len
 
 			By("kicking off provisioning by applying the provisioner and nodeTemplate")
+			// // test start
+			// provisioner.Spec.Consolidation = &v1alpha5.Consolidation{
+			// 	Enabled: aws.Bool(true),
+			// }
+			// test end
 			env.ExpectCreated(provisioner, nodeTemplate)
 			env.EventuallyExpectHealthyPodCount(selector, len(pods)) // TODO @JacobValdemar: Probably an one-off error here with len
 
-			By("saving topology")
-			var carbonAwareStatus string
-			if enabled {
-				carbonAwareStatus = "enabled"
-			} else {
-				carbonAwareStatus = "disabled"
-			}
 			experimentDirectory = filepath.Join(
 				experimentDirectory,
 				"hetrogeneous-pods",
 				fmt.Sprintf("file-%s", fileName),
-				fmt.Sprintf("carbonAware-%s", carbonAwareStatus),
+				fmt.Sprintf("carbonAware-%t", carbonAwareEnabled),
 			)
 			env.SaveTopology(experimentDirectory, "nodes.json")
 
 		},
-		EntryDescription("CarbonAwareEnabled=%t, podTopologyInputFile=%s.json"),
+		//EntryDescription("CarbonAwareEnabled=%t, podTopologyInputFile=%s.json"),
 		// Entry(nil, true, "observed-pod-topology1"),
 		// Entry(nil, false, "observed-pod-topology1"),
 		// Entry(nil, true, "observed-pod-topology2"),

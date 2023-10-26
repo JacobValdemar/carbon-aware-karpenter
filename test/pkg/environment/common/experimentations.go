@@ -6,19 +6,30 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/aws/karpenter/pkg/apis/v1alpha1"
 	. "github.com/onsi/ginkgo/v2" //nolint:revive,stylecheck
 	. "github.com/onsi/gomega"    //nolint:revive,stylecheck
 	v1 "k8s.io/api/core/v1"
 )
 
+func (env *Environment) GetAllowedInstanceCategories() v1.NodeSelectorRequirement {
+	return v1.NodeSelectorRequirement{
+		Key:      v1alpha1.LabelInstanceCategory,
+		Operator: v1.NodeSelectorOpIn,
+		Values:   []string{"m", "t", "c", "r", "a"},
+	}
+}
+
 func (env *Environment) SaveTopology(dir string, fileName string) {
 	GinkgoHelper()
+
+	By("saving topology")
 
 	// createdNodes := env.Monitor.CreatedNodes()
 
 	// var instances []string
 	// for _, node := range createdNodes {
-	// 	instances = append(instances, node.Labels["node.kubernetes.io/instance-type"])
+	// 	instances = append(instances, node.Labels[v1.LabelInstanceType])
 	// }
 
 	nodesUtilization := env.Monitor.GetNodeUtilizations(v1.ResourceCPU)
