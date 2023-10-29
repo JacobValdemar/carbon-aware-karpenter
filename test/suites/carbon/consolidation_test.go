@@ -164,8 +164,8 @@ var _ = Describe("Consolidation", Label(debug.NoWatch), Label(debug.NoEvents), f
 
 			experimentDirectory = filepath.Join(
 				experimentDirectory,
-				fmt.Sprintf("carbonAware-%t", carbonAwareEnabled),
 				strings.Trim(strings.Join(strings.Fields(fmt.Sprint(testList)), "-"), "[]"),
+				fmt.Sprintf("carbonAware-%t", carbonAwareEnabled),
 			)
 			deployment.Spec.Replicas = ptr.Int32(0)
 			env.ExpectCreated(deployment)
@@ -197,8 +197,14 @@ var _ = Describe("Consolidation", Label(debug.NoWatch), Label(debug.NoEvents), f
 		},
 			// Entry(nil, []int{3, 4, 10, WaitForConsolidation}),
 			// Entry(nil, []int{3, 4, 5, 7, WaitForConsolidation, 10, WaitForConsolidation}),
-			Entry(nil, true, []int{10, WaitForConsolidation}),
-			Entry(nil, false, []int{10, WaitForConsolidation}),
+			// Entry(nil, true, []int{10, WaitForConsolidation}),
+			// Entry(nil, false, []int{10, WaitForConsolidation}),
+			// Entry(nil, true, []int{5, WaitForConsolidation, 10, WaitForConsolidation, 15, WaitForConsolidation}),
+			// Entry(nil, false, []int{5, WaitForConsolidation, 10, WaitForConsolidation, 15, WaitForConsolidation}),
+			Entry(nil, true, []int{20, WaitForConsolidation, 25, WaitForConsolidation}),
+			Entry(nil, true, []int{10, 20, WaitForConsolidation}),
+			Entry(nil, false, []int{20, WaitForConsolidation, 25, WaitForConsolidation}),
+			Entry(nil, false, []int{10, 20, WaitForConsolidation}),
 		)
 
 		PIt("setting replica count to 7", func() {

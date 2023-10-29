@@ -54,9 +54,24 @@ func (env *Environment) SaveTopology(dir string, fileName string) {
 	// 	instances = append(instances, node.Labels[v1.LabelInstanceType])
 	// }
 
+	createdNodes := env.Monitor.CreatedNodes()
+
+	var instances []string
+	for _, node := range createdNodes {
+		instances = append(instances, node.Labels[v1.LabelInstanceType])
+	}
+
 	nodesUtilization := env.Monitor.GetNodeUtilizations(v1.ResourceCPU)
 
-	b, err := json.MarshalIndent(nodesUtilization, "", "    ")
+	save := struct {
+		Summary []string
+		Verbose []NodeUtil
+	}{
+		Summary: instances,
+		Verbose: nodesUtilization,
+	}
+
+	b, err := json.MarshalIndent(save, "", "    ")
 	Expect(err).NotTo(HaveOccurred())
 
 	err = os.MkdirAll(dir, os.ModePerm)

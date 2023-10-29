@@ -80,7 +80,7 @@ var _ = Describe("Provisioning", Label(debug.NoWatch), Label(debug.NoEvents), fu
 		experimentDirectory = filepath.Join("experiments", timenow, "Provisioning")
 	})
 
-	PDescribeTable("homogeneous pods",
+	DescribeTable("homogeneous pods",
 		func(carbonAwareEnabled bool, replicaCount int, cpuRequest string, memoryRequest string) {
 			replicas := replicaCount
 			deployment = test.Deployment(test.DeploymentOptions{
@@ -123,14 +123,14 @@ var _ = Describe("Provisioning", Label(debug.NoWatch), Label(debug.NoEvents), fu
 			env.SaveTopology(experimentDirectory, "nodes.json")
 		},
 		EntryDescription("CarbonAwareEnabled=%t, replicas=%d, CPU=%s, memory=%s"),
-		// Entry(nil, true, 2, "50m", "50Mi"),
-		// Entry(nil, true, 7, "150m", "50Mi"),
-		// Entry(nil, true, 3, "350m", "50Mi"),
-		// Entry(nil, true, 3, "675m", "100Mi"),
-		// Entry(nil, false, 2, "50m", "50Mi"),
-		// Entry(nil, false, 7, "150m", "50Mi"),
-		// Entry(nil, false, 3, "350m", "50Mi"),
-		// Entry(nil, false, 3, "675m", "100Mi"),
+		Entry(nil, true, 2, "50m", "50Mi"),
+		Entry(nil, true, 7, "150m", "50Mi"),
+		Entry(nil, true, 3, "350m", "50Mi"),
+		Entry(nil, true, 3, "675m", "100Mi"),
+		Entry(nil, false, 2, "50m", "50Mi"),
+		Entry(nil, false, 7, "150m", "50Mi"),
+		Entry(nil, false, 3, "350m", "50Mi"),
+		Entry(nil, false, 3, "675m", "100Mi"),
 	)
 
 	PDescribeTable("hetrogeneous pods",
