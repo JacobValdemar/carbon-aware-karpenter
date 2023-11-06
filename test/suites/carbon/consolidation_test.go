@@ -55,11 +55,12 @@ var _ = Describe("Consolidation", Label(debug.NoWatch), Label(debug.NoEvents), f
 		})
 	})
 
-	PDescribeTable("should consolidate nodes (replace)", func(carbonAwareEnabled bool, fileName string) {
+	DescribeTable("should consolidate heterogeneous pods from real cluster", func(carbonAwareEnabled bool, fileName string, step int) {
 		var pods []*v1.Pod
 		experimentDirectory = filepath.Join(
 			experimentDirectory,
 			"consolidate-nodes",
+			fmt.Sprintf("step-%d", step),
 			fmt.Sprintf("carbonAware-%t", carbonAwareEnabled),
 		)
 
@@ -70,27 +71,60 @@ var _ = Describe("Consolidation", Label(debug.NoWatch), Label(debug.NoEvents), f
 			"featureGates.carbonAwareEnabled": strconv.FormatBool(carbonAwareEnabled),
 		})
 
-		By("waiting for pods to be deployed")
-		for _, pod := range pods {
+		By("applying the provisioner and nodeTemplate")
+		env.ExpectCreated(provisioner, provider)
+
+		var last int
+		for i := range pods {
+			if len(pods) < step+1 {
+				break
+			}
+
+			if i == 0 {
+				continue
+			}
+
+			if i%(step) == 0 {
+				last = i
+
+				By(fmt.Sprintf("waiting for pods %d..%d to be deployed", i-step, i-1))
+				for _, pod := range pods[(i - step):i] {
+					//GinkgoWriter.Printf("creating pod %d\n", i-(step-j))
+					env.ExpectCreated(pod)
+				}
+
+				env.EventuallyExpectHealthyPodCount(selector, i)
+				env.SaveTopology(experimentDirectory, fmt.Sprintf("nodesAt%dPods.json", i))
+			}
+			if i%(step*4) == 0 {
+				By("waiting for consolidation (20s)")
+				time.Sleep(20 * time.Second)
+				env.SaveTopology(experimentDirectory, fmt.Sprintf("nodesAt%dPodsAfterConsolidation.json", i))
+			}
+		}
+
+		By("waiting for last pods to be deployed")
+		for _, pod := range pods[last:] {
 			env.ExpectCreated(pod)
 		}
-		env.EventuallyExpectPendingPodCount(selector, len(pods)) // TODO @JacobValdemar: Probably an one-off error here with len
-
-		By("kicking off provisioning by applying the provisioner and nodeTemplate")
-		env.ExpectCreated(provisioner, provider)
 		env.EventuallyExpectHealthyPodCount(selector, len(pods))
-		env.SaveTopology(experimentDirectory, "nodesBeforeConsolidation.json")
 
-		// for _, pod := range pods {
-		// 	env.ExpectDeleted(pod)
-		// }
+		By("waiting for consolidation (1m)")
+		time.Sleep(1 * time.Minute)
+
+		env.SaveTopology(experimentDirectory, fmt.Sprintf("nodesAt%dPodsAfterConsolidation.json", len(pods)))
 	},
-		EntryDescription("CarbonAwareEnabled=%t, podTopologyInputFile=%s.json"),
-		//Entry(nil, true, "observed-pod-topology2"),
-		//Entry(nil, false, "observed-pod-topology2"),
+		EntryDescription("CarbonAwareEnabled=%t, podTopologyInputFile=%s.json, step=%d"),
+		PEntry(nil, true, "observed-pod-topology3", 14),
+		PEntry(nil, false, "observed-pod-topology3", 14),
+		PEntry(nil, true, "observed-pod-topology4", 100),
+		Entry(nil, true, "observed-pod-topology4", 90),
+		PEntry(nil, false, "observed-pod-topology4", 100),
+		PEntry(nil, true, "observed-pod-topology5", 14),
+		PEntry(nil, false, "observed-pod-topology5", 14),
 	)
 
-	Context("should consolidate homogeneous nodes", func() {
+	Context("should consolidate homogeneous pods", func() {
 		var replicas int32
 		var deployment *appsv1.Deployment
 		var selector labels.Selector
@@ -195,16 +229,16 @@ var _ = Describe("Consolidation", Label(debug.NoWatch), Label(debug.NoEvents), f
 			}
 
 		},
-			// Entry(nil, []int{3, 4, 10, WaitForConsolidation}),
-			// Entry(nil, []int{3, 4, 5, 7, WaitForConsolidation, 10, WaitForConsolidation}),
-			// Entry(nil, true, []int{10, WaitForConsolidation}),
-			// Entry(nil, false, []int{10, WaitForConsolidation}),
-			// Entry(nil, true, []int{5, WaitForConsolidation, 10, WaitForConsolidation, 15, WaitForConsolidation}),
-			// Entry(nil, false, []int{5, WaitForConsolidation, 10, WaitForConsolidation, 15, WaitForConsolidation}),
-			Entry(nil, true, []int{20, WaitForConsolidation, 25, WaitForConsolidation}),
-			Entry(nil, true, []int{10, 20, WaitForConsolidation}),
-			Entry(nil, false, []int{20, WaitForConsolidation, 25, WaitForConsolidation}),
-			Entry(nil, false, []int{10, 20, WaitForConsolidation}),
+			PEntry(nil, []int{3, 4, 10, WaitForConsolidation}),
+			PEntry(nil, []int{3, 4, 5, 7, WaitForConsolidation, 10, WaitForConsolidation}),
+			PEntry(nil, true, []int{10, WaitForConsolidation}),
+			PEntry(nil, false, []int{10, WaitForConsolidation}),
+			PEntry(nil, true, []int{5, WaitForConsolidation, 10, WaitForConsolidation, 15, WaitForConsolidation}),
+			PEntry(nil, false, []int{5, WaitForConsolidation, 10, WaitForConsolidation, 15, WaitForConsolidation}),
+			PEntry(nil, true, []int{20, WaitForConsolidation, 25, WaitForConsolidation}),
+			PEntry(nil, true, []int{10, 20, WaitForConsolidation}),
+			PEntry(nil, false, []int{20, WaitForConsolidation, 25, WaitForConsolidation}),
+			PEntry(nil, false, []int{10, 20, WaitForConsolidation}),
 		)
 
 		PIt("setting replica count to 7", func() {

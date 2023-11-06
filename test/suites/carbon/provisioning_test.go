@@ -80,7 +80,7 @@ var _ = Describe("Provisioning", Label(debug.NoWatch), Label(debug.NoEvents), fu
 		experimentDirectory = filepath.Join("experiments", timenow, "Provisioning")
 	})
 
-	DescribeTable("homogeneous pods",
+	PDescribeTable("homogeneous pods",
 		func(carbonAwareEnabled bool, replicaCount int, cpuRequest string, memoryRequest string) {
 			replicas := replicaCount
 			deployment = test.Deployment(test.DeploymentOptions{
