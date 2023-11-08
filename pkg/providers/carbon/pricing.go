@@ -16,6 +16,7 @@ package carbon
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"strings"
 	"sync"
@@ -189,6 +190,7 @@ func (p *Provider) Reset() {
 
 	if !ok {
 		// fall back to eu-west-1
+		fmt.Println("Carbon Pricing Provider: FALLING BACK TO EU-WEST-1")
 		staticPricing = initialOnDemandPrices["eu-west-1"]
 	}
 

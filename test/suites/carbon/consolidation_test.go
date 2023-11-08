@@ -115,11 +115,16 @@ var _ = Describe("Consolidation", Label(debug.NoWatch), Label(debug.NoEvents), f
 		env.SaveTopology(experimentDirectory, fmt.Sprintf("nodesAt%dPodsAfterConsolidation.json", len(pods)))
 	},
 		EntryDescription("CarbonAwareEnabled=%t, podTopologyInputFile=%s.json, step=%d"),
+
 		PEntry(nil, true, "observed-pod-topology3", 14),
 		PEntry(nil, false, "observed-pod-topology3", 14),
-		PEntry(nil, true, "observed-pod-topology4", 100),
-		Entry(nil, true, "observed-pod-topology4", 90),
-		PEntry(nil, false, "observed-pod-topology4", 100),
+
+		Entry(nil, true, "observed-pod-topology4", 100),
+		Entry(nil, false, "observed-pod-topology4", 100),
+
+		PEntry(nil, true, "observed-pod-topology4", 90),
+		PEntry(nil, false, "observed-pod-topology4", 90),
+
 		PEntry(nil, true, "observed-pod-topology5", 14),
 		PEntry(nil, false, "observed-pod-topology5", 14),
 	)

@@ -1,6 +1,6 @@
 export K8S_VERSION ?= 1.27.x
 CLUSTER_NAME ?= $(shell ../kubectl config view --minify -o jsonpath='{.clusters[].name}' | rev | cut -d"/" -f1 | rev | cut -d"." -f1)
-AWS_DEFAULT_REGION ?= eu-west-1
+#AWS_DEFAULT_REGION ?= eu-west-1
 ## Inject the app version into project.Version
 ifdef SNAPSHOT_TAG
 LDFLAGS ?= -ldflags=-X=github.com/aws/karpenter/pkg/utils/project.Version=$(SNAPSHOT_TAG)
