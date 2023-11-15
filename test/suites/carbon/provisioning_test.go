@@ -77,7 +77,7 @@ var _ = Describe("Provisioning", Label(debug.NoWatch), Label(debug.NoEvents), fu
 			},
 		})
 		selector = labels.SelectorFromSet(deployment.Spec.Selector.MatchLabels)
-		experimentDirectory = filepath.Join("experiments", timenow, "eu-north-1", "Provisioning")
+		experimentDirectory = filepath.Join("experiments", timenow, "eu-west-1", "Provisioning")
 	})
 
 	DescribeTable("homogeneous pods",
@@ -124,17 +124,28 @@ var _ = Describe("Provisioning", Label(debug.NoWatch), Label(debug.NoEvents), fu
 		},
 		EntryDescription("CarbonAwareEnabled=%t, replicas=%d, CPU=%s, memory=%s"),
 
-		PEntry(nil, true, 2, "50m", "50Mi"),
-		PEntry(nil, false, 2, "50m", "50Mi"),
+		// Randomized
+		Entry("A1, CarbonAware", true, 13, "292m", "121Mi"),
+		Entry("A2, CarbonAware", true, 13, "220m", "17Mi"),
+		Entry("A3, CarbonAware", true, 16, "179m", "182Mi"),
+		Entry("A4, CarbonAware", true, 20, "258m", "235Mi"),
+		Entry("A5, CarbonAware", true, 8, "37m", "71Mi"),
+		Entry("A6, CarbonAware", true, 17, "69m", "107Mi"),
+		Entry("A7, CarbonAware", true, 20, "75m", "190Mi"),
+		Entry("A8, CarbonAware", true, 17, "142m", "216Mi"),
+		Entry("A9, CarbonAware", true, 14, "156m", "95Mi"),
+		Entry("A10, CarbonAware", true, 11, "150m", "64Mi"),
 
-		PEntry(nil, true, 7, "150m", "50Mi"),
-		PEntry(nil, false, 7, "150m", "50Mi"),
-
-		PEntry(nil, true, 3, "675m", "100Mi"),
-		PEntry(nil, false, 3, "675m", "100Mi"),
-
-		PEntry(nil, false, 12, "120m", "300Mi"),
-		PEntry(nil, true, 12, "120m", "300Mi"),
+		Entry("A1, Original", false, 13, "292m", "121Mi"),
+		Entry("A2, Original", false, 13, "220m", "17Mi"),
+		Entry("A3, Original", false, 16, "179m", "182Mi"),
+		Entry("A4, Original", false, 20, "258m", "235Mi"),
+		Entry("A5, Original", false, 8, "37m", "71Mi"),
+		Entry("A6, Original", false, 17, "69m", "107Mi"),
+		Entry("A7, Original", false, 20, "75m", "190Mi"),
+		Entry("A8, Original", false, 17, "142m", "216Mi"),
+		Entry("A9, Original", false, 14, "156m", "95Mi"),
+		Entry("A10, Original", false, 11, "150m", "64Mi"),
 	)
 
 	PDescribeTable("hetrogeneous pods",

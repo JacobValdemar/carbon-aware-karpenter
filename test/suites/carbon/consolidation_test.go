@@ -36,7 +36,7 @@ var _ = Describe("Consolidation", Label(debug.NoWatch), Label(debug.NoEvents), f
 	var carbonAwareEnabled bool
 
 	BeforeEach(func() {
-		experimentDirectory = filepath.Join("experiments", timenow, "Consolidation")
+		experimentDirectory = filepath.Join("experiments", timenow, "eu-west-1", "Consolidation")
 
 		provider = awstest.AWSNodeTemplate(v1alpha1.AWSNodeTemplateSpec{AWS: v1alpha1.AWS{
 			SecurityGroupSelector: map[string]string{"karpenter.sh/discovery": settings.FromContext(env.Context).ClusterName},
@@ -97,8 +97,9 @@ var _ = Describe("Consolidation", Label(debug.NoWatch), Label(debug.NoEvents), f
 				env.SaveTopology(experimentDirectory, fmt.Sprintf("nodesAt%dPods.json", i))
 			}
 			if i%(step*4) == 0 {
-				By("waiting for consolidation (20s)")
-				time.Sleep(20 * time.Second)
+				sleeptime := 35 * time.Second
+				By(fmt.Sprintf("waiting for consolidation (%s)", sleeptime.String()))
+				time.Sleep(sleeptime)
 				env.SaveTopology(experimentDirectory, fmt.Sprintf("nodesAt%dPodsAfterConsolidation.json", i))
 			}
 		}
@@ -109,24 +110,19 @@ var _ = Describe("Consolidation", Label(debug.NoWatch), Label(debug.NoEvents), f
 		}
 		env.EventuallyExpectHealthyPodCount(selector, len(pods))
 
-		By("waiting for consolidation (1m)")
-		time.Sleep(1 * time.Minute)
+		sleeptime := 1 * time.Minute
+		By(fmt.Sprintf("waiting for consolidation (%s)", sleeptime.String()))
+		time.Sleep(sleeptime)
 
 		env.SaveTopology(experimentDirectory, fmt.Sprintf("nodesAt%dPodsAfterConsolidation.json", len(pods)))
 	},
 		EntryDescription("CarbonAwareEnabled=%t, podTopologyInputFile=%s.json, step=%d"),
 
-		PEntry(nil, true, "observed-pod-topology3", 14),
-		PEntry(nil, false, "observed-pod-topology3", 14),
+		Entry(nil, true, "observed-pod-topology-triangle", 100),
+		Entry(nil, false, "observed-pod-topology-triangle", 100),
 
-		Entry(nil, true, "observed-pod-topology4", 100),
-		Entry(nil, false, "observed-pod-topology4", 100),
-
-		PEntry(nil, true, "observed-pod-topology4", 90),
-		PEntry(nil, false, "observed-pod-topology4", 90),
-
-		PEntry(nil, true, "observed-pod-topology5", 14),
-		PEntry(nil, false, "observed-pod-topology5", 14),
+		Entry(nil, true, "observed-pod-topology-rectangle", 100),
+		Entry(nil, false, "observed-pod-topology-tectangle", 100),
 	)
 
 	Context("should consolidate homogeneous pods", func() {

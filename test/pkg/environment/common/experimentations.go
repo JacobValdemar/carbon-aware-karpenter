@@ -91,6 +91,11 @@ func (env *Environment) SaveTopology(dir string, fileName string) {
 	// 	fmt.Sprintf("expected %d created nodes, had %d (%v)", count, len(createdNodes), NodeNames(createdNodes)))
 }
 
+type InputContainer struct {
+	CPURequest    string `json:"cpu_request,omitempty"`
+	MemoryRequest string `json:"memory_request,omitempty"`
+}
+
 func (env *Environment) ImportPodTopologyTestInput(dir string, fileName string) ([]*v1.Pod, labels.Selector) {
 	By(fmt.Sprintf("loading pod topology from %s", fileName))
 
@@ -101,30 +106,42 @@ func (env *Environment) ImportPodTopologyTestInput(dir string, fileName string) 
 
 	byteValue, _ := io.ReadAll(jsonFile)
 
-	var myPods []MyPod
-	err = json.Unmarshal(byteValue, &myPods)
+	var inputPods [][]InputContainer
+	err = json.Unmarshal(byteValue, &inputPods)
 	Expect(err).NotTo(HaveOccurred())
 
 	var pods []*v1.Pod
 	label := map[string]string{"testing/pod-app": "loaded"}
 	selector := labels.SelectorFromSet(label)
-	for _, inputPod := range myPods {
-		var requests v1.ResourceList
-		if inputPod.MemoryRequest == "" && inputPod.CPURequest == "" {
-			requests = v1.ResourceList{}
-		} else if inputPod.MemoryRequest != "" && inputPod.CPURequest == "" {
-			requests = v1.ResourceList{
-				v1.ResourceMemory: resource.MustParse(inputPod.MemoryRequest),
+	for _, inputPod := range inputPods {
+
+		var cpu resource.Quantity
+		var memory resource.Quantity
+
+		for _, container := range inputPod {
+			CPURequest := container.CPURequest
+			MemoryRequest := container.MemoryRequest
+
+			if CPURequest == "" {
+				CPURequest = "0"
 			}
-		} else if inputPod.MemoryRequest == "" && inputPod.CPURequest != "" {
-			requests = v1.ResourceList{
-				v1.ResourceCPU: resource.MustParse(inputPod.CPURequest),
+
+			if MemoryRequest == "" {
+				MemoryRequest = "0"
 			}
-		} else {
-			requests = v1.ResourceList{
-				v1.ResourceCPU:    resource.MustParse(inputPod.CPURequest),
-				v1.ResourceMemory: resource.MustParse(inputPod.MemoryRequest),
-			}
+
+			cpu.Add(resource.MustParse(CPURequest))
+			memory.Add(resource.MustParse(MemoryRequest))
+		}
+
+		requests := v1.ResourceList{
+			v1.ResourceCPU:    cpu,
+			v1.ResourceMemory: memory,
+		}
+
+		//fmt.Printf("cpu: %s, memory: %s\n", requests.Cpu().String(), requests.Memory().String())
+		if cpu.IsZero() && memory.IsZero() {
+			continue
 		}
 
 		pods = append(pods, test.Pod(test.PodOptions{
