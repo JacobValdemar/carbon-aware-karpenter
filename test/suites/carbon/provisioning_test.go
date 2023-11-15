@@ -80,8 +80,8 @@ var _ = Describe("Provisioning", Label(debug.NoWatch), Label(debug.NoEvents), fu
 		experimentDirectory = filepath.Join("experiments", timenow, "eu-west-1", "Provisioning")
 	})
 
-	DescribeTable("homogeneous pods",
-		func(carbonAwareEnabled bool, replicaCount int, cpuRequest string, memoryRequest string) {
+	PDescribeTable("homogeneous pods",
+		func(testString1 string, testString2 string, carbonAwareEnabled bool, replicaCount int, cpuRequest string, memoryRequest string) {
 			replicas := replicaCount
 			deployment = test.Deployment(test.DeploymentOptions{
 				PodOptions: test.PodOptions{
@@ -115,37 +115,36 @@ var _ = Describe("Provisioning", Label(debug.NoWatch), Label(debug.NoEvents), fu
 			experimentDirectory = filepath.Join(
 				experimentDirectory,
 				"homogeneous-pods",
-				fmt.Sprintf("%d-replicas", replicas),
-				fmt.Sprintf("cpu-%s", cpuRequest),
-				fmt.Sprintf("memory-%s", memoryRequest),
-				fmt.Sprintf("carbonAware-%t", carbonAwareEnabled),
+				testString1,
+				testString2,
 			)
 			env.SaveTopology(experimentDirectory, "nodes.json")
 		},
-		EntryDescription("CarbonAwareEnabled=%t, replicas=%d, CPU=%s, memory=%s"),
+		//EntryDescription("CarbonAwareEnabled=%t, replicas=%d, CPU=%s, memory=%s"),
+		EntryDescription("%s, %s"),
 
 		// Randomized
-		Entry("A1, CarbonAware", true, 13, "292m", "121Mi"),
-		Entry("A2, CarbonAware", true, 13, "220m", "17Mi"),
-		Entry("A3, CarbonAware", true, 16, "179m", "182Mi"),
-		Entry("A4, CarbonAware", true, 20, "258m", "235Mi"),
-		Entry("A5, CarbonAware", true, 8, "37m", "71Mi"),
-		Entry("A6, CarbonAware", true, 17, "69m", "107Mi"),
-		Entry("A7, CarbonAware", true, 20, "75m", "190Mi"),
-		Entry("A8, CarbonAware", true, 17, "142m", "216Mi"),
-		Entry("A9, CarbonAware", true, 14, "156m", "95Mi"),
-		Entry("A10, CarbonAware", true, 11, "150m", "64Mi"),
+		Entry(nil, "A1", "CarbonAware", true, 13, "292m", "121Mi"),
+		Entry(nil, "A2", "CarbonAware", true, 13, "220m", "17Mi"),
+		Entry(nil, "A3", "CarbonAware", true, 16, "179m", "182Mi"),
+		Entry(nil, "A4", "CarbonAware", true, 20, "258m", "235Mi"),
+		Entry(nil, "A5", "CarbonAware", true, 8, "37m", "71Mi"),
+		Entry(nil, "A6", "CarbonAware", true, 17, "69m", "107Mi"),
+		Entry(nil, "A7", "CarbonAware", true, 20, "75m", "190Mi"),
+		Entry(nil, "A8", "CarbonAware", true, 17, "142m", "216Mi"),
+		Entry(nil, "A9", "CarbonAware", true, 14, "156m", "95Mi"),
+		Entry(nil, "A10", "CarbonAware", true, 11, "150m", "64Mi"),
 
-		Entry("A1, Original", false, 13, "292m", "121Mi"),
-		Entry("A2, Original", false, 13, "220m", "17Mi"),
-		Entry("A3, Original", false, 16, "179m", "182Mi"),
-		Entry("A4, Original", false, 20, "258m", "235Mi"),
-		Entry("A5, Original", false, 8, "37m", "71Mi"),
-		Entry("A6, Original", false, 17, "69m", "107Mi"),
-		Entry("A7, Original", false, 20, "75m", "190Mi"),
-		Entry("A8, Original", false, 17, "142m", "216Mi"),
-		Entry("A9, Original", false, 14, "156m", "95Mi"),
-		Entry("A10, Original", false, 11, "150m", "64Mi"),
+		Entry(nil, "A1", "Original", false, 13, "292m", "121Mi"),
+		Entry(nil, "A2", "Original", false, 13, "220m", "17Mi"),
+		Entry(nil, "A3", "Original", false, 16, "179m", "182Mi"),
+		Entry(nil, "A4", "Original", false, 20, "258m", "235Mi"),
+		Entry(nil, "A5", "Original", false, 8, "37m", "71Mi"),
+		Entry(nil, "A6", "Original", false, 17, "69m", "107Mi"),
+		Entry(nil, "A7", "Original", false, 20, "75m", "190Mi"),
+		Entry(nil, "A8", "Original", false, 17, "142m", "216Mi"),
+		Entry(nil, "A9", "Original", false, 14, "156m", "95Mi"),
+		Entry(nil, "A10", "Original", false, 11, "150m", "64Mi"),
 	)
 
 	PDescribeTable("hetrogeneous pods",

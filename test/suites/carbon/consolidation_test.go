@@ -61,10 +61,11 @@ var _ = Describe("Consolidation", Label(debug.NoWatch), Label(debug.NoEvents), f
 			experimentDirectory,
 			"consolidate-nodes",
 			fmt.Sprintf("step-%d", step),
+			fileName,
 			fmt.Sprintf("carbonAware-%t", carbonAwareEnabled),
 		)
 
-		pods, selector := env.ImportPodTopologyTestInput(path.Join("experiments", "testInput"), fileName+".json")
+		pods, selector := env.ImportPodTopologyTestInput(path.Join("experiments", "testInput"), "observed-pod-topology-"+fileName+".json")
 
 		By(fmt.Sprintf("setting carbonAwareEnabled to %s", strconv.FormatBool(carbonAwareEnabled)))
 		env.ExpectSettingsOverridden(map[string]string{
@@ -118,11 +119,11 @@ var _ = Describe("Consolidation", Label(debug.NoWatch), Label(debug.NoEvents), f
 	},
 		EntryDescription("CarbonAwareEnabled=%t, podTopologyInputFile=%s.json, step=%d"),
 
-		Entry(nil, true, "observed-pod-topology-triangle", 100),
-		Entry(nil, false, "observed-pod-topology-triangle", 100),
+		Entry(nil, true, "triangle", 100),
+		Entry(nil, false, "triangle", 100),
 
-		Entry(nil, true, "observed-pod-topology-rectangle", 100),
-		Entry(nil, false, "observed-pod-topology-tectangle", 100),
+		Entry(nil, true, "rectangle", 100),
+		Entry(nil, false, "rectangle", 100),
 	)
 
 	Context("should consolidate homogeneous pods", func() {
