@@ -56,7 +56,7 @@ var _ = Describe("Consolidation", Label(debug.NoWatch), Label(debug.NoEvents), f
 	})
 
 	DescribeTable("should consolidate heterogeneous pods from real cluster", func(carbonAwareEnabled bool, fileName string, step int) {
-		var pods []*v1.Pod
+
 		experimentDirectory = filepath.Join(
 			experimentDirectory,
 			"consolidate-nodes",
@@ -65,7 +65,7 @@ var _ = Describe("Consolidation", Label(debug.NoWatch), Label(debug.NoEvents), f
 			fmt.Sprintf("carbonAware-%t", carbonAwareEnabled),
 		)
 
-		pods, selector := env.ImportPodTopologyTestInput(path.Join("experiments", "testInput"), "observed-pod-topology-"+fileName+".json")
+		deployments, selector := env.ImportPodTopologyTestInput(path.Join("experiments", "testInput"), "observed-pod-topology-"+fileName+".json")
 
 		By(fmt.Sprintf("setting carbonAwareEnabled to %s", strconv.FormatBool(carbonAwareEnabled)))
 		env.ExpectSettingsOverridden(map[string]string{
@@ -76,8 +76,8 @@ var _ = Describe("Consolidation", Label(debug.NoWatch), Label(debug.NoEvents), f
 		env.ExpectCreated(provisioner, provider)
 
 		var last int
-		for i := range pods {
-			if len(pods) < step+1 {
+		for i := range deployments {
+			if len(deployments) < step+1 {
 				break
 			}
 
@@ -89,41 +89,39 @@ var _ = Describe("Consolidation", Label(debug.NoWatch), Label(debug.NoEvents), f
 				last = i
 
 				By(fmt.Sprintf("waiting for pods %d..%d to be deployed", i-step, i-1))
-				for _, pod := range pods[(i - step):i] {
+				for _, deployment := range deployments[(i - step):i] {
 					//GinkgoWriter.Printf("creating pod %d\n", i-(step-j))
-					env.ExpectCreated(pod)
+					env.ExpectCreated(deployment)
 				}
 
 				env.EventuallyExpectHealthyPodCount(selector, i)
+				//env.Sleep(70 * time.Second)
 				env.SaveTopology(experimentDirectory, fmt.Sprintf("nodesAt%dPods.json", i))
 			}
-			if i%(step*4) == 0 {
-				sleeptime := 35 * time.Second
-				By(fmt.Sprintf("waiting for consolidation (%s)", sleeptime.String()))
-				time.Sleep(sleeptime)
+			if i%(step*2) == 0 {
+				env.Sleep(90 * time.Second)
 				env.SaveTopology(experimentDirectory, fmt.Sprintf("nodesAt%dPodsAfterConsolidation.json", i))
 			}
 		}
 
 		By("waiting for last pods to be deployed")
-		for _, pod := range pods[last:] {
-			env.ExpectCreated(pod)
+		for _, deployment := range deployments[last:] {
+			env.ExpectCreated(deployment)
 		}
-		env.EventuallyExpectHealthyPodCount(selector, len(pods))
-
-		sleeptime := 1 * time.Minute
-		By(fmt.Sprintf("waiting for consolidation (%s)", sleeptime.String()))
-		time.Sleep(sleeptime)
-
-		env.SaveTopology(experimentDirectory, fmt.Sprintf("nodesAt%dPodsAfterConsolidation.json", len(pods)))
+		env.EventuallyExpectHealthyPodCount(selector, len(deployments))
+		env.Sleep(3 * time.Minute)
+		env.SaveTopology(experimentDirectory, fmt.Sprintf("nodesAt%dPodsAfterConsolidation.json", len(deployments)))
 	},
-		EntryDescription("CarbonAwareEnabled=%t, podTopologyInputFile=%s.json, step=%d"),
+		EntryDescription("CarbonAwareEnabled=%t, podTopology=%s, step=%d"),
 
-		Entry(nil, true, "triangle", 100),
+		PEntry(nil, true, "triangle", 40),
+		PEntry(nil, false, "triangle", 40),
+
 		Entry(nil, false, "triangle", 100),
+		Entry(nil, true, "triangle", 100),
 
-		Entry(nil, true, "rectangle", 100),
-		Entry(nil, false, "rectangle", 100),
+		PEntry(nil, false, "rectangle", 100),
+		PEntry(nil, true, "rectangle", 100),
 	)
 
 	Context("should consolidate homogeneous pods", func() {
@@ -210,9 +208,8 @@ var _ = Describe("Consolidation", Label(debug.NoWatch), Label(debug.NoEvents), f
 			// TODO: Jeg skal også gøre så jeg kan køre hhv. enabled og disabled carbon aware tests og se dem begge.
 			for step, newReplicaCount := range testList {
 				if newReplicaCount == WaitForConsolidation {
-					By("waiting for consolidation")
 					// nodesAtLast := env.Monitor.CreatedNodes()
-					time.Sleep(3 * time.Minute)
+					env.Sleep(2 * time.Minute)
 					// Eventually(func(g Gomega) {
 					// 	currentNodes := env.Monitor.CreatedNodes()
 					// 	g.Expect(len(currentNodes)).To(BeNumerically("<", len(nodesAtLast)))
@@ -231,8 +228,6 @@ var _ = Describe("Consolidation", Label(debug.NoWatch), Label(debug.NoEvents), f
 			}
 
 		},
-			PEntry(nil, []int{3, 4, 10, WaitForConsolidation}),
-			PEntry(nil, []int{3, 4, 5, 7, WaitForConsolidation, 10, WaitForConsolidation}),
 			PEntry(nil, true, []int{10, WaitForConsolidation}),
 			PEntry(nil, false, []int{10, WaitForConsolidation}),
 			PEntry(nil, true, []int{5, WaitForConsolidation, 10, WaitForConsolidation, 15, WaitForConsolidation}),

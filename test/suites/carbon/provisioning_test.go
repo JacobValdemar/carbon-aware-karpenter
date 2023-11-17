@@ -77,7 +77,7 @@ var _ = Describe("Provisioning", Label(debug.NoWatch), Label(debug.NoEvents), fu
 			},
 		})
 		selector = labels.SelectorFromSet(deployment.Spec.Selector.MatchLabels)
-		experimentDirectory = filepath.Join("experiments", timenow, "eu-west-1", "Provisioning")
+		experimentDirectory = filepath.Join("experiments", timenow, "ap-south-1", "Provisioning")
 	})
 
 	PDescribeTable("homogeneous pods",

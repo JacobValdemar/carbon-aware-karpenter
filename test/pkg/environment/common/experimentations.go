@@ -6,12 +6,15 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"sort"
+	"time"
 
 	"github.com/aws/karpenter-core/pkg/apis/v1alpha5"
 	"github.com/aws/karpenter-core/pkg/test"
 	"github.com/aws/karpenter/pkg/apis/v1alpha1"
 	. "github.com/onsi/ginkgo/v2" //nolint:revive,stylecheck
 	. "github.com/onsi/gomega"    //nolint:revive,stylecheck
+	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -54,19 +57,25 @@ func (env *Environment) SaveTopology(dir string, fileName string) {
 	// 	instances = append(instances, node.Labels[v1.LabelInstanceType])
 	// }
 
-	createdNodes := env.Monitor.CreatedNodes()
-
-	var instances []string
-	for _, node := range createdNodes {
-		instances = append(instances, node.Labels[v1.LabelInstanceType])
-	}
-
 	nodesUtilization := env.Monitor.GetNodeUtilizations(v1.ResourceCPU)
 
+	var instances []string
+	for _, node := range nodesUtilization {
+		instances = append(instances, fmt.Sprintf("%s: %f", node.InstanceType, node.Utilization))
+	}
+
+	sort.Slice(instances, func(i, j int) bool {
+		return i < j
+	})
+
+	impact := analyzer(nodesUtilization)
+
 	save := struct {
+		Impact  float64
 		Summary []string
 		Verbose []NodeUtil
 	}{
+		Impact:  impact,
 		Summary: instances,
 		Verbose: nodesUtilization,
 	}
@@ -96,7 +105,12 @@ type InputContainer struct {
 	MemoryRequest string `json:"memory_request,omitempty"`
 }
 
-func (env *Environment) ImportPodTopologyTestInput(dir string, fileName string) ([]*v1.Pod, labels.Selector) {
+func (env *Environment) Sleep(sleeptime time.Duration) {
+	By(fmt.Sprintf("waiting for consolidation (%s)", sleeptime.String()))
+	time.Sleep(sleeptime)
+}
+
+func (env *Environment) ImportPodTopologyTestInput(dir string, fileName string) ([]*appsv1.Deployment, labels.Selector) {
 	By(fmt.Sprintf("loading pod topology from %s", fileName))
 
 	path := filepath.Join(dir, fileName)
@@ -110,7 +124,7 @@ func (env *Environment) ImportPodTopologyTestInput(dir string, fileName string) 
 	err = json.Unmarshal(byteValue, &inputPods)
 	Expect(err).NotTo(HaveOccurred())
 
-	var pods []*v1.Pod
+	var deployments []*appsv1.Deployment
 	label := map[string]string{"testing/pod-app": "loaded"}
 	selector := labels.SelectorFromSet(label)
 	for _, inputPod := range inputPods {
@@ -144,18 +158,18 @@ func (env *Environment) ImportPodTopologyTestInput(dir string, fileName string) 
 			continue
 		}
 
-		pods = append(pods, test.Pod(test.PodOptions{
-			ObjectMeta: metav1.ObjectMeta{
-				Annotations: map[string]string{
-					v1alpha5.DoNotEvictPodAnnotationKey: "true",
+		deployments = append(deployments, test.Deployment(test.DeploymentOptions{
+			PodOptions: test.PodOptions{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: label,
 				},
-				Labels: label,
+				ResourceRequirements: v1.ResourceRequirements{
+					Requests: requests,
+				},
 			},
-			ResourceRequirements: v1.ResourceRequirements{
-				Requests: requests,
-			},
+			Replicas: 1,
 		}))
 	}
 
-	return pods, selector
+	return deployments, selector
 }
