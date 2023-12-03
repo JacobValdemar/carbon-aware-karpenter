@@ -186,6 +186,7 @@ func (p *Provider) Reset() {
 	// 		break
 	// 	}
 	// }
+	fmt.Printf("Carbon Pricing Provider: region: %s\n", p.region)
 	staticPricing, ok := initialOnDemandPrices[p.region]
 
 	if !ok {

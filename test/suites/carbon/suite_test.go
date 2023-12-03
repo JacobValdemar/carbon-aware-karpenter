@@ -35,7 +35,7 @@ func TestCarbon(t *testing.T) {
 	AfterSuite(func() {
 		env.Stop()
 	})
-	RunSpecs(t, "Carbon Awareness")
+	RunSpecs(t, "Carbon Efficiency")
 }
 
 var _ = BeforeEach(func() {

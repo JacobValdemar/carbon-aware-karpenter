@@ -62,12 +62,12 @@ func NewControllers(ctx context.Context, sess *session.Session, clk clock.Clock,
 	if settings.FromContext(ctx).IsolatedVPC {
 		logging.FromContext(ctx).Infof("assuming isolated VPC, pricing information will not be updated")
 	} else {
-		if settings.FromContext(ctx).CarbonAwareEnabled {
+		if settings.FromContext(ctx).CarbonEfficient {
 			controllers = append(controllers, carbon.NewController(pricingProvider))
-			logging.FromContext(ctx).With("CarbonAwareEnabled", settings.FromContext(ctx).CarbonAwareEnabled).Debugf("Enabled") // TODO @JacobValdemar: Remove debug
+			logging.FromContext(ctx).With("CarbonEfficient", settings.FromContext(ctx).CarbonEfficient).Debugf("Enabled") // TODO @JacobValdemar: Remove debug
 		} else {
 			controllers = append(controllers, pricing.NewController(pricingProvider))
-			logging.FromContext(ctx).With("CarbonAwareEnabled", settings.FromContext(ctx).CarbonAwareEnabled).Debugf("Disabled") // TODO @JacobValdemar: Remove debug
+			logging.FromContext(ctx).With("CarbonEfficient", settings.FromContext(ctx).CarbonEfficient).Debugf("Disabled") // TODO @JacobValdemar: Remove debug
 		}
 	}
 	return controllers

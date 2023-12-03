@@ -131,7 +131,7 @@ func NewOperator(ctx context.Context, operator *operator.Operator) (context.Cont
 	securityGroupProvider := securitygroup.NewProvider(ec2api, cache.New(awscache.DefaultTTL, awscache.DefaultCleanupInterval))
 	instanceProfileProvider := instanceprofile.NewProvider(*sess.Config.Region, iam.New(sess), cache.New(awscache.InstanceProfileTTL, awscache.DefaultCleanupInterval))
 	var pricingProvider iprovider.IPricingProvider
-	if settings.FromContext(ctx).CarbonAwareEnabled {
+	if settings.FromContext(ctx).CarbonEfficient {
 		pricingProvider = carbon.NewProvider(
 			ctx,
 			pricing.NewAPI(sess, *sess.Config.Region),

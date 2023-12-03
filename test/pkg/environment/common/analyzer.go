@@ -64,6 +64,11 @@ func nodeNameToLocation(nodeName string, defaulLocation string) string {
 		"BRA": {"sa-east-1"},
 	}
 
+	// The nodeName in us-east-1 contains "ec2" instead of the region
+	if strings.Contains(nodeName, "ec2") {
+		return "USA"
+	}
+
 	for a, b := range locationToRegion {
 		for _, z := range b {
 			if strings.Contains(nodeName, z) {

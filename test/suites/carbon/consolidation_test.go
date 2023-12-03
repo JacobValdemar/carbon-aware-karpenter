@@ -1,7 +1,9 @@
 package carbon_test
 
 import (
+	"encoding/csv"
 	"fmt"
+	"os"
 	"path"
 	"path/filepath"
 	"strconv"
@@ -33,7 +35,7 @@ var _ = Describe("Consolidation", Label(debug.NoWatch), Label(debug.NoEvents), f
 	var experimentDirectory string
 	var provider *v1alpha1.AWSNodeTemplate
 	var provisioner *v1alpha5.Provisioner
-	var carbonAwareEnabled bool
+	var carbonEfficient bool
 
 	BeforeEach(func() {
 		experimentDirectory = filepath.Join("experiments", timenow, "eu-west-1", "Consolidation")
@@ -55,21 +57,21 @@ var _ = Describe("Consolidation", Label(debug.NoWatch), Label(debug.NoEvents), f
 		})
 	})
 
-	DescribeTable("should consolidate heterogeneous pods from real cluster", func(carbonAwareEnabled bool, fileName string, step int) {
+	PDescribeTable("should consolidate heterogeneous pods from real cluster", func(carbonEfficient bool, fileName string, step int) {
 
 		experimentDirectory = filepath.Join(
 			experimentDirectory,
 			"consolidate-nodes",
 			fmt.Sprintf("step-%d", step),
 			fileName,
-			fmt.Sprintf("carbonAware-%t", carbonAwareEnabled),
+			fmt.Sprintf("carbonEfficient-%t", carbonEfficient),
 		)
 
 		deployments, selector := env.ImportPodTopologyTestInput(path.Join("experiments", "testInput"), "observed-pod-topology-"+fileName+".json")
 
-		By(fmt.Sprintf("setting carbonAwareEnabled to %s", strconv.FormatBool(carbonAwareEnabled)))
+		By(fmt.Sprintf("setting carbonEfficient to %s", strconv.FormatBool(carbonEfficient)))
 		env.ExpectSettingsOverridden(map[string]string{
-			"featureGates.carbonAwareEnabled": strconv.FormatBool(carbonAwareEnabled),
+			"featureGates.carbonEfficient": strconv.FormatBool(carbonEfficient),
 		})
 
 		By("applying the provisioner and nodeTemplate")
@@ -109,19 +111,48 @@ var _ = Describe("Consolidation", Label(debug.NoWatch), Label(debug.NoEvents), f
 			env.ExpectCreated(deployment)
 		}
 		env.EventuallyExpectHealthyPodCount(selector, len(deployments))
-		env.Sleep(3 * time.Minute)
+		env.Sleep(4 * time.Minute)
 		env.SaveTopology(experimentDirectory, fmt.Sprintf("nodesAt%dPodsAfterConsolidation.json", len(deployments)))
 	},
-		EntryDescription("CarbonAwareEnabled=%t, podTopology=%s, step=%d"),
+		EntryDescription("CarbonEfficient=%t, podTopology=%s, step=%d"),
 
-		PEntry(nil, true, "triangle", 40),
-		PEntry(nil, false, "triangle", 40),
-
-		Entry(nil, false, "triangle", 100),
-		Entry(nil, true, "triangle", 100),
+		PEntry(nil, false, "triangle", 100),
+		PEntry(nil, true, "triangle", 100),
 
 		PEntry(nil, false, "rectangle", 100),
 		PEntry(nil, true, "rectangle", 100),
+
+		PEntry(nil, true, "hexagon", 100),
+		PEntry(nil, false, "hexagon", 100),
+
+		PEntry(nil, true, "pentagon", 100),
+		PEntry(nil, false, "pentagon", 100),
+	)
+
+	DescribeTable("create csv", func(fileName string) {
+		deployments, _ := env.ImportPodTopologyTestInput(path.Join("experiments", "testInput"), "observed-pod-topology-"+fileName+".json")
+
+		file, err := os.Create(fileName + ".csv")
+		if err != nil {
+			panic(err)
+		}
+		defer file.Close()
+
+		writer := csv.NewWriter(file)
+		defer writer.Flush()
+
+		writer.Write([]string{"cpu_request", "memory_request"})
+
+		for _, deployment := range deployments {
+			row := []string{deployment.Spec.Template.Spec.Containers[0].Resources.Requests.Cpu().AsDec().String(), deployment.Spec.Template.Spec.Containers[0].Resources.Requests.Memory().AsDec().String()}
+			writer.Write(row)
+		}
+	},
+		Entry(nil, "hexagon"),
+		Entry(nil, "pentagon"),
+		Entry(nil, "rectangle"),
+		Entry(nil, "triangle"),
+		Entry(nil, "circle"),
 	)
 
 	Context("should consolidate homogeneous pods", func() {
@@ -130,7 +161,7 @@ var _ = Describe("Consolidation", Label(debug.NoWatch), Label(debug.NoEvents), f
 		var selector labels.Selector
 
 		BeforeEach(func() {
-			carbonAwareEnabled = true
+			carbonEfficient = true
 
 			experimentDirectory = filepath.Join(
 				experimentDirectory,
@@ -154,9 +185,9 @@ var _ = Describe("Consolidation", Label(debug.NoWatch), Label(debug.NoEvents), f
 		})
 
 		PIt("scaling deployment 2->5->7", func() {
-			By(fmt.Sprintf("setting carbonAwareEnabled to %s", strconv.FormatBool(carbonAwareEnabled)))
+			By(fmt.Sprintf("setting carbonEfficient to %s", strconv.FormatBool(carbonEfficient)))
 			env.ExpectSettingsOverridden(map[string]string{
-				"featureGates.carbonAwareEnabled": strconv.FormatBool(carbonAwareEnabled),
+				"featureGates.carbonEfficient": strconv.FormatBool(carbonEfficient),
 			})
 
 			By("kicking off provisioning by applying the provisioner and nodeTemplate")
@@ -187,10 +218,10 @@ var _ = Describe("Consolidation", Label(debug.NoWatch), Label(debug.NoEvents), f
 			env.SaveTopology(experimentDirectory, fmt.Sprintf("nodesAt%dReplicas.json", replicas))
 		})
 
-		DescribeTable("scaling deployment", func(carbonAwareEnabled bool, testList []int) {
-			By(fmt.Sprintf("setting carbonAwareEnabled to %s", strconv.FormatBool(carbonAwareEnabled)))
+		DescribeTable("scaling deployment", func(carbonEfficient bool, testList []int) {
+			By(fmt.Sprintf("setting carbonEfficient to %s", strconv.FormatBool(carbonEfficient)))
 			env.ExpectSettingsOverridden(map[string]string{
-				"featureGates.carbonAwareEnabled": strconv.FormatBool(carbonAwareEnabled),
+				"featureGates.carbonEfficient": strconv.FormatBool(carbonEfficient),
 			})
 
 			By("kicking off provisioning by applying the provisioner and nodeTemplate")
@@ -199,13 +230,13 @@ var _ = Describe("Consolidation", Label(debug.NoWatch), Label(debug.NoEvents), f
 			experimentDirectory = filepath.Join(
 				experimentDirectory,
 				strings.Trim(strings.Join(strings.Fields(fmt.Sprint(testList)), "-"), "[]"),
-				fmt.Sprintf("carbonAware-%t", carbonAwareEnabled),
+				fmt.Sprintf("carbonEfficient-%t", carbonEfficient),
 			)
 			deployment.Spec.Replicas = ptr.Int32(0)
 			env.ExpectCreated(deployment)
 
 			// TODO: Jeg skal bare give den tid til at consolidere efter hver gang. Så den har mulighed hvis den vil.
-			// TODO: Jeg skal også gøre så jeg kan køre hhv. enabled og disabled carbon aware tests og se dem begge.
+			// TODO: Jeg skal også gøre så jeg kan køre hhv. enabled og disabled carbon efficient tests og se dem begge.
 			for step, newReplicaCount := range testList {
 				if newReplicaCount == WaitForConsolidation {
 					// nodesAtLast := env.Monitor.CreatedNodes()
@@ -239,9 +270,9 @@ var _ = Describe("Consolidation", Label(debug.NoWatch), Label(debug.NoEvents), f
 		)
 
 		PIt("setting replica count to 7", func() {
-			By(fmt.Sprintf("setting carbonAwareEnabled to %s", strconv.FormatBool(carbonAwareEnabled)))
+			By(fmt.Sprintf("setting carbonEfficient to %s", strconv.FormatBool(carbonEfficient)))
 			env.ExpectSettingsOverridden(map[string]string{
-				"featureGates.carbonAwareEnabled": strconv.FormatBool(carbonAwareEnabled),
+				"featureGates.carbonEfficient": strconv.FormatBool(carbonEfficient),
 			})
 
 			By("kicking off provisioning by applying the provisioner and nodeTemplate")
@@ -263,9 +294,9 @@ var _ = Describe("Consolidation", Label(debug.NoWatch), Label(debug.NoEvents), f
 		})
 
 		PIt("scaling deployment 2->5->7->wait", func() {
-			By(fmt.Sprintf("setting carbonAwareEnabled to %s", strconv.FormatBool(carbonAwareEnabled)))
+			By(fmt.Sprintf("setting carbonEfficient to %s", strconv.FormatBool(carbonEfficient)))
 			env.ExpectSettingsOverridden(map[string]string{
-				"featureGates.carbonAwareEnabled": strconv.FormatBool(carbonAwareEnabled),
+				"featureGates.carbonEfficient": strconv.FormatBool(carbonEfficient),
 			})
 
 			By("kicking off provisioning by applying the provisioner and nodeTemplate")

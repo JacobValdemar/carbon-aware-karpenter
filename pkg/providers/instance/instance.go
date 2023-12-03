@@ -227,7 +227,7 @@ func (p *Provider) launchInstance(ctx context.Context, nodeClass *v1beta1.EC2Nod
 		createFleetInput.SpotOptions = &ec2.SpotOptionsRequest{AllocationStrategy: aws.String(ec2.SpotAllocationStrategyPriceCapacityOptimized)}
 		panic("WE ARE IN SPOT AND SHOULD NOT BE HERE IN THESIS") // TODO @JacobValdemar: Remove
 	} else {
-		if settings.FromContext(ctx).CarbonAwareEnabled {
+		if settings.FromContext(ctx).CarbonEfficient {
 			createFleetInput.OnDemandOptions = &ec2.OnDemandOptionsRequest{AllocationStrategy: aws.String(ec2.FleetOnDemandAllocationStrategyPrioritized)}
 		} else {
 			createFleetInput.OnDemandOptions = &ec2.OnDemandOptionsRequest{AllocationStrategy: aws.String(ec2.FleetOnDemandAllocationStrategyLowestPrice)}
@@ -367,7 +367,7 @@ func (p *Provider) getOverrides(ctx context.Context, instanceTypes []*cloudprovi
 			AvailabilityZone: subnet.AvailabilityZone,
 		}
 
-		if settings.FromContext(ctx).CarbonAwareEnabled {
+		if settings.FromContext(ctx).CarbonEfficient {
 			override.Priority = aws.Float64(offering.Price)
 		}
 

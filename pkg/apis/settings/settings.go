@@ -42,7 +42,7 @@ var defaultSettings = &Settings{
 	InterruptionQueueName:      "",
 	Tags:                       map[string]string{},
 	ReservedENIs:               0,
-	CarbonAwareEnabled:         true, // TODO @JacobValdemar: Set default as false when releasing
+	CarbonEfficient:            false, // TODO @JacobValdemar: config: Set default as false when releasing
 }
 
 // +k8s:deepcopy-gen=true
@@ -60,7 +60,7 @@ type Settings struct {
 	InterruptionQueueName      string
 	Tags                       map[string]string
 	ReservedENIs               int
-	CarbonAwareEnabled         bool
+	CarbonEfficient            bool
 }
 
 func (*Settings) ConfigMap() string {
@@ -85,7 +85,7 @@ func (*Settings) Inject(ctx context.Context, cm *v1.ConfigMap) (context.Context,
 		configmap.AsString("aws.interruptionQueueName", &s.InterruptionQueueName),
 		AsStringMap("aws.tags", &s.Tags),
 		configmap.AsInt("aws.reservedENIs", &s.ReservedENIs),
-		configmap.AsBool("featureGates.carbonAwareEnabled", &s.CarbonAwareEnabled),
+		configmap.AsBool("featureGates.carbonEfficient", &s.CarbonEfficient),
 	); err != nil {
 		return ctx, fmt.Errorf("parsing settings, %w", err)
 	}
