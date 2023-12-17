@@ -175,28 +175,14 @@ func populateInitialSpotPricing(pricing map[string]float64) map[string]zonal {
 }
 
 func (p *Provider) Reset() {
-	// TODO @JacobValdemar: Remove the commented out code below
-	// see if we've got region specific pricing data
-	// fmt.Printf("\nREGION: %s\n", p.region)
-	// var staticPricing *map[string]float64 = nil
-	// for region, pricing := range initialOnDemandPrices {
-	// 	// e.g. eu-west-1a contains eu-west-1
-	// 	if strings.Contains(p.region, region) {
-	// 		staticPricing = pricing
-	// 		break
-	// 	}
-	// }
-	fmt.Printf("Carbon Pricing Provider: region: %s\n", p.region)
-	staticPricing, ok := initialOnDemandPrices[p.region]
-
+	staticPricing, ok := carbonImpacts[p.region]
 	if !ok {
-		// fall back to eu-west-1
-		fmt.Println("Carbon Pricing Provider: FALLING BACK TO EU-WEST-1")
-		staticPricing = initialOnDemandPrices["eu-west-1"]
+		fallbackRegion := "eu-west-1"
+		fmt.Printf("Carbon Pricing Provider: No carbon impacts for %s, using fallback region: %s\n", p.region, fallbackRegion)
+		staticPricing = carbonImpacts[fallbackRegion]
 	}
 
 	p.onDemandPrices = *staticPricing
-	// default our spot pricing to the same as the on-demand pricing until a price update
 	p.spotPrices = populateInitialSpotPricing(*staticPricing)
 	p.onDemandUpdateTime = initialPriceUpdate
 	p.spotUpdateTime = initialPriceUpdate

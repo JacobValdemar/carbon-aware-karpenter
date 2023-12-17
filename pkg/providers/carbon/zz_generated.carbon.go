@@ -7,10 +7,10 @@ import "time"
 // generated at 2023-11-22T12:53:11Z
 
 var initialPriceUpdate, _ = time.Parse(time.RFC3339, "2023-11-22T12:53:11Z")
-var initialOnDemandPrices = map[string]*map[string]float64{}
+var carbonImpacts = map[string]*map[string]float64{}
 
 func init() {
-	initialOnDemandPrices["ARE"] = &map[string]float64{
+	carbonImpacts["ARE"] = &map[string]float64{
 		"a1.2xlarge":        0.022194,
 		"a1.4xlarge":        0.044389,
 		"a1.large":          0.005549,
@@ -772,7 +772,7 @@ func init() {
 		"z1d.xlarge":        0.034088,
 	}
 
-	initialOnDemandPrices["AUS"] = &map[string]float64{
+	carbonImpacts["AUS"] = &map[string]float64{
 		"a1.2xlarge":        0.025116,
 		"a1.4xlarge":        0.050232,
 		"a1.large":          0.006279,
@@ -1534,7 +1534,7 @@ func init() {
 		"z1d.xlarge":        0.039931,
 	}
 
-	initialOnDemandPrices["BHR"] = &map[string]float64{
+	carbonImpacts["BHR"] = &map[string]float64{
 		"a1.2xlarge":        0.022792,
 		"a1.4xlarge":        0.045584,
 		"a1.large":          0.005698,
@@ -2296,7 +2296,7 @@ func init() {
 		"z1d.xlarge":        0.035283,
 	}
 
-	initialOnDemandPrices["BRA"] = &map[string]float64{
+	carbonImpacts["BRA"] = &map[string]float64{
 		"a1.2xlarge":        0.010276,
 		"a1.4xlarge":        0.020551,
 		"a1.large":          0.002569,
@@ -3058,7 +3058,7 @@ func init() {
 		"z1d.xlarge":        0.010251,
 	}
 
-	initialOnDemandPrices["CAN"] = &map[string]float64{
+	carbonImpacts["CAN"] = &map[string]float64{
 		"a1.2xlarge":        0.010508,
 		"a1.4xlarge":        0.021016,
 		"a1.large":          0.002627,
@@ -3820,7 +3820,7 @@ func init() {
 		"z1d.xlarge":        0.010716,
 	}
 
-	initialOnDemandPrices["CHE"] = &map[string]float64{
+	carbonImpacts["CHE"] = &map[string]float64{
 		"a1.2xlarge":        0.009114,
 		"a1.4xlarge":        0.018227,
 		"a1.large":          0.002278,
@@ -4582,7 +4582,7 @@ func init() {
 		"z1d.xlarge":        0.007927,
 	}
 
-	initialOnDemandPrices["DEU"] = &map[string]float64{
+	carbonImpacts["DEU"] = &map[string]float64{
 		"a1.2xlarge":        0.020534,
 		"a1.4xlarge":        0.041069,
 		"a1.large":          0.005134,
@@ -5344,7 +5344,7 @@ func init() {
 		"z1d.xlarge":        0.030768,
 	}
 
-	initialOnDemandPrices["ESP"] = &map[string]float64{
+	carbonImpacts["ESP"] = &map[string]float64{
 		"a1.2xlarge":        0.015787,
 		"a1.4xlarge":        0.031574,
 		"a1.large":          0.003947,
@@ -6106,7 +6106,7 @@ func init() {
 		"z1d.xlarge":        0.021273,
 	}
 
-	initialOnDemandPrices["FRA"] = &map[string]float64{
+	carbonImpacts["FRA"] = &map[string]float64{
 		"a1.2xlarge":        0.009778,
 		"a1.4xlarge":        0.019555,
 		"a1.large":          0.002444,
@@ -6868,7 +6868,7 @@ func init() {
 		"z1d.xlarge":        0.009255,
 	}
 
-	initialOnDemandPrices["GBR"] = &map[string]float64{
+	carbonImpacts["GBR"] = &map[string]float64{
 		"a1.2xlarge":        0.014691,
 		"a1.4xlarge":        0.029382,
 		"a1.large":          0.003673,
@@ -7630,7 +7630,7 @@ func init() {
 		"z1d.xlarge":        0.019082,
 	}
 
-	initialOnDemandPrices["HKG"] = &map[string]float64{
+	carbonImpacts["HKG"] = &map[string]float64{
 		"a1.2xlarge":        0.038358,
 		"a1.4xlarge":        0.076717,
 		"a1.large":          0.009590,
@@ -8392,7 +8392,7 @@ func init() {
 		"z1d.xlarge":        0.066415,
 	}
 
-	initialOnDemandPrices["IDN"] = &map[string]float64{
+	carbonImpacts["IDN"] = &map[string]float64{
 		"a1.2xlarge":        0.028535,
 		"a1.4xlarge":        0.057071,
 		"a1.large":          0.007134,
@@ -9154,7 +9154,7 @@ func init() {
 		"z1d.xlarge":        0.046770,
 	}
 
-	initialOnDemandPrices["IND"] = &map[string]float64{
+	carbonImpacts["IND"] = &map[string]float64{
 		"a1.2xlarge":        0.027307,
 		"a1.4xlarge":        0.054614,
 		"a1.large":          0.006827,
@@ -9916,7 +9916,7 @@ func init() {
 		"z1d.xlarge":        0.044313,
 	}
 
-	initialOnDemandPrices["IRL"] = &map[string]float64{
+	carbonImpacts["IRL"] = &map[string]float64{
 		"a1.2xlarge":        0.019273,
 		"a1.4xlarge":        0.038546,
 		"a1.large":          0.004818,
@@ -10678,7 +10678,7 @@ func init() {
 		"z1d.xlarge":        0.028245,
 	}
 
-	initialOnDemandPrices["ISR"] = &map[string]float64{
+	carbonImpacts["ISR"] = &map[string]float64{
 		"a1.2xlarge":        0.025016,
 		"a1.4xlarge":        0.050033,
 		"a1.large":          0.006254,
@@ -11440,7 +11440,7 @@ func init() {
 		"z1d.xlarge":        0.039731,
 	}
 
-	initialOnDemandPrices["ITA"] = &map[string]float64{
+	carbonImpacts["ITA"] = &map[string]float64{
 		"a1.2xlarge":        0.018343,
 		"a1.4xlarge":        0.036686,
 		"a1.large":          0.004586,
@@ -12202,7 +12202,7 @@ func init() {
 		"z1d.xlarge":        0.026385,
 	}
 
-	initialOnDemandPrices["JPN"] = &map[string]float64{
+	carbonImpacts["JPN"] = &map[string]float64{
 		"a1.2xlarge":        0.022228,
 		"a1.4xlarge":        0.044455,
 		"a1.large":          0.005557,
@@ -12964,7 +12964,7 @@ func init() {
 		"z1d.xlarge":        0.034154,
 	}
 
-	initialOnDemandPrices["KOR"] = &map[string]float64{
+	carbonImpacts["KOR"] = &map[string]float64{
 		"a1.2xlarge":        0.021265,
 		"a1.4xlarge":        0.042529,
 		"a1.large":          0.005316,
@@ -13726,7 +13726,7 @@ func init() {
 		"z1d.xlarge":        0.032228,
 	}
 
-	initialOnDemandPrices["SGP"] = &map[string]float64{
+	carbonImpacts["SGP"] = &map[string]float64{
 		"a1.2xlarge":        0.022759,
 		"a1.4xlarge":        0.045517,
 		"a1.large":          0.005690,
@@ -14488,7 +14488,7 @@ func init() {
 		"z1d.xlarge":        0.035216,
 	}
 
-	initialOnDemandPrices["SWE"] = &map[string]float64{
+	carbonImpacts["SWE"] = &map[string]float64{
 		"a1.2xlarge":        0.007852,
 		"a1.4xlarge":        0.015704,
 		"a1.large":          0.001963,
@@ -15250,7 +15250,7 @@ func init() {
 		"z1d.xlarge":        0.005404,
 	}
 
-	initialOnDemandPrices["USA"] = &map[string]float64{
+	carbonImpacts["USA"] = &map[string]float64{
 		"a1.2xlarge":        0.018808,
 		"a1.4xlarge":        0.037616,
 		"a1.large":          0.004702,
@@ -16012,7 +16012,7 @@ func init() {
 		"z1d.xlarge":        0.027315,
 	}
 
-	initialOnDemandPrices["ZAF"] = &map[string]float64{
+	carbonImpacts["ZAF"] = &map[string]float64{
 		"a1.2xlarge":        0.030428,
 		"a1.4xlarge":        0.060856,
 		"a1.large":          0.007607,
@@ -16774,32 +16774,32 @@ func init() {
 		"z1d.xlarge":        0.050554,
 	}
 
-	initialOnDemandPrices["eu-north-1"] = initialOnDemandPrices["SWE"]
-	initialOnDemandPrices["il-central-1"] = initialOnDemandPrices["ISR"]
-	initialOnDemandPrices["me-south-1"] = initialOnDemandPrices["BHR"]
-	initialOnDemandPrices["ap-south-1"] = initialOnDemandPrices["IND"]
-	initialOnDemandPrices["ap-south-2"] = initialOnDemandPrices["IND"]
-	initialOnDemandPrices["ap-northeast-2"] = initialOnDemandPrices["KOR"]
-	initialOnDemandPrices["ap-southeast-1"] = initialOnDemandPrices["SGP"]
-	initialOnDemandPrices["ap-southeast-3"] = initialOnDemandPrices["IDN"]
-	initialOnDemandPrices["af-south-1"] = initialOnDemandPrices["ZAF"]
-	initialOnDemandPrices["ap-northeast-1"] = initialOnDemandPrices["JPN"]
-	initialOnDemandPrices["ap-northeast-3"] = initialOnDemandPrices["JPN"]
-	initialOnDemandPrices["eu-central-2"] = initialOnDemandPrices["CHE"]
-	initialOnDemandPrices["eu-west-3"] = initialOnDemandPrices["FRA"]
-	initialOnDemandPrices["eu-south-1"] = initialOnDemandPrices["ITA"]
-	initialOnDemandPrices["eu-south-2"] = initialOnDemandPrices["ESP"]
-	initialOnDemandPrices["me-central-1"] = initialOnDemandPrices["ARE"]
-	initialOnDemandPrices["ap-east-1"] = initialOnDemandPrices["HKG"]
-	initialOnDemandPrices["ca-central-1"] = initialOnDemandPrices["CAN"]
-	initialOnDemandPrices["eu-central-1"] = initialOnDemandPrices["DEU"]
-	initialOnDemandPrices["eu-west-2"] = initialOnDemandPrices["GBR"]
-	initialOnDemandPrices["us-east-1"] = initialOnDemandPrices["USA"]
-	initialOnDemandPrices["us-east-2"] = initialOnDemandPrices["USA"]
-	initialOnDemandPrices["us-west-1"] = initialOnDemandPrices["USA"]
-	initialOnDemandPrices["us-west-2"] = initialOnDemandPrices["USA"]
-	initialOnDemandPrices["ap-southeast-2"] = initialOnDemandPrices["AUS"]
-	initialOnDemandPrices["ap-southeast-4"] = initialOnDemandPrices["AUS"]
-	initialOnDemandPrices["eu-west-1"] = initialOnDemandPrices["IRL"]
-	initialOnDemandPrices["sa-east-1"] = initialOnDemandPrices["BRA"]
+	carbonImpacts["eu-north-1"] = carbonImpacts["SWE"]
+	carbonImpacts["il-central-1"] = carbonImpacts["ISR"]
+	carbonImpacts["me-south-1"] = carbonImpacts["BHR"]
+	carbonImpacts["ap-south-1"] = carbonImpacts["IND"]
+	carbonImpacts["ap-south-2"] = carbonImpacts["IND"]
+	carbonImpacts["ap-northeast-2"] = carbonImpacts["KOR"]
+	carbonImpacts["ap-southeast-1"] = carbonImpacts["SGP"]
+	carbonImpacts["ap-southeast-3"] = carbonImpacts["IDN"]
+	carbonImpacts["af-south-1"] = carbonImpacts["ZAF"]
+	carbonImpacts["ap-northeast-1"] = carbonImpacts["JPN"]
+	carbonImpacts["ap-northeast-3"] = carbonImpacts["JPN"]
+	carbonImpacts["eu-central-2"] = carbonImpacts["CHE"]
+	carbonImpacts["eu-west-3"] = carbonImpacts["FRA"]
+	carbonImpacts["eu-south-1"] = carbonImpacts["ITA"]
+	carbonImpacts["eu-south-2"] = carbonImpacts["ESP"]
+	carbonImpacts["me-central-1"] = carbonImpacts["ARE"]
+	carbonImpacts["ap-east-1"] = carbonImpacts["HKG"]
+	carbonImpacts["ca-central-1"] = carbonImpacts["CAN"]
+	carbonImpacts["eu-central-1"] = carbonImpacts["DEU"]
+	carbonImpacts["eu-west-2"] = carbonImpacts["GBR"]
+	carbonImpacts["us-east-1"] = carbonImpacts["USA"]
+	carbonImpacts["us-east-2"] = carbonImpacts["USA"]
+	carbonImpacts["us-west-1"] = carbonImpacts["USA"]
+	carbonImpacts["us-west-2"] = carbonImpacts["USA"]
+	carbonImpacts["ap-southeast-2"] = carbonImpacts["AUS"]
+	carbonImpacts["ap-southeast-4"] = carbonImpacts["AUS"]
+	carbonImpacts["eu-west-1"] = carbonImpacts["IRL"]
+	carbonImpacts["sa-east-1"] = carbonImpacts["BRA"]
 }
