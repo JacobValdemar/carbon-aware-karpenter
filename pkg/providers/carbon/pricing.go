@@ -124,7 +124,6 @@ func (p *Provider) SpotLastUpdated() time.Time {
 	return p.spotUpdateTime
 }
 
-// TODO @JacobValdemar: should create something like this?
 // OnDemandPrice returns the last known on-demand price for a given instance type, returning an error if there is no
 // known on-demand pricing for the instance type.
 func (p *Provider) OnDemandPrice(instanceType string) (float64, bool) {

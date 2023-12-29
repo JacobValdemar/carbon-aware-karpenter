@@ -57,7 +57,7 @@ var _ = Describe("Consolidation", Label(debug.NoWatch), Label(debug.NoEvents), f
 		})
 	})
 
-	PDescribeTable("should consolidate heterogeneous pods from real cluster", func(carbonEfficient bool, fileName string, step int) {
+	DescribeTable("should consolidate heterogeneous pods from real cluster", func(carbonEfficient bool, fileName string, step int) {
 
 		experimentDirectory = filepath.Join(
 			experimentDirectory,
@@ -129,7 +129,7 @@ var _ = Describe("Consolidation", Label(debug.NoWatch), Label(debug.NoEvents), f
 		PEntry(nil, false, "pentagon", 100),
 	)
 
-	DescribeTable("create csv", func(fileName string) {
+	PDescribeTable("create csv", func(fileName string) {
 		deployments, _ := env.ImportPodTopologyTestInput(path.Join("experiments", "testInput"), "observed-pod-topology-"+fileName+".json")
 
 		file, err := os.Create(fileName + ".csv")
@@ -155,7 +155,7 @@ var _ = Describe("Consolidation", Label(debug.NoWatch), Label(debug.NoEvents), f
 		Entry(nil, "circle"),
 	)
 
-	Context("should consolidate homogeneous pods", func() {
+	PContext("should consolidate homogeneous pods", func() {
 		var replicas int32
 		var deployment *appsv1.Deployment
 		var selector labels.Selector

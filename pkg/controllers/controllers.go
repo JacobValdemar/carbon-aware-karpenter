@@ -64,10 +64,9 @@ func NewControllers(ctx context.Context, sess *session.Session, clk clock.Clock,
 	} else {
 		if settings.FromContext(ctx).CarbonEfficient {
 			controllers = append(controllers, carbon.NewController(pricingProvider))
-			logging.FromContext(ctx).With("CarbonEfficient", settings.FromContext(ctx).CarbonEfficient).Debugf("Enabled") // TODO @JacobValdemar: Remove debug
+			logging.FromContext(ctx).With("CarbonEfficient", settings.FromContext(ctx).CarbonEfficient).Debugf("Enabled")
 		} else {
 			controllers = append(controllers, pricing.NewController(pricingProvider))
-			logging.FromContext(ctx).With("CarbonEfficient", settings.FromContext(ctx).CarbonEfficient).Debugf("Disabled") // TODO @JacobValdemar: Remove debug
 		}
 	}
 	return controllers

@@ -85,12 +85,12 @@ func NewProvider(ctx context.Context, region string, ec2api ec2iface.EC2API, una
 
 func (p *Provider) Create(ctx context.Context, nodeClass *v1beta1.EC2NodeClass, nodeClaim *corev1beta1.NodeClaim, instanceTypes []*cloudprovider.InstanceType) (*Instance, error) {
 	instanceTypes = p.filterInstanceTypes(nodeClaim, instanceTypes)
-	instanceTypes = orderInstanceTypesByPrice(instanceTypes, scheduling.NewNodeSelectorRequirements(nodeClaim.Spec.Requirements...)) // TODO @JacobValdemar: see
+	instanceTypes = orderInstanceTypesByPrice(instanceTypes, scheduling.NewNodeSelectorRequirements(nodeClaim.Spec.Requirements...))
 	if len(instanceTypes) > MaxInstanceTypes {
 		instanceTypes = instanceTypes[0:MaxInstanceTypes]
 	}
 	tags := getTags(ctx, nodeClass, nodeClaim)
-	fleetInstance, err := p.launchInstance(ctx, nodeClass, nodeClaim, instanceTypes, tags) // TODO @JacobValdemar: see
+	fleetInstance, err := p.launchInstance(ctx, nodeClass, nodeClaim, instanceTypes, tags)
 	if awserrors.IsLaunchTemplateNotFound(err) {
 		// retry once if launch template is not found. This allows karpenter to generate a new LT if the
 		// cache was out-of-sync on the first try
@@ -222,10 +222,8 @@ func (p *Provider) launchInstance(ctx context.Context, nodeClass *v1beta1.EC2Nod
 			{ResourceType: aws.String(ec2.ResourceTypeFleet), Tags: utils.MergeTags(tags)},
 		},
 	}
-	// TODO @JacobValdemar: here fleet is created. Use prioritized instead?
 	if capacityType == corev1beta1.CapacityTypeSpot {
 		createFleetInput.SpotOptions = &ec2.SpotOptionsRequest{AllocationStrategy: aws.String(ec2.SpotAllocationStrategyPriceCapacityOptimized)}
-		panic("WE ARE IN SPOT AND SHOULD NOT BE HERE IN THESIS") // TODO @JacobValdemar: Remove
 	} else {
 		if settings.FromContext(ctx).CarbonEfficient {
 			createFleetInput.OnDemandOptions = &ec2.OnDemandOptionsRequest{AllocationStrategy: aws.String(ec2.FleetOnDemandAllocationStrategyPrioritized)}
@@ -372,8 +370,6 @@ func (p *Provider) getOverrides(ctx context.Context, instanceTypes []*cloudprovi
 		}
 
 		overrides = append(overrides, override)
-
-		// TODO @JacobValdemar: https://github.com/aws/karpenter/blob/v0.14.0/pkg/cloudprovider/aws/instance.go#L268
 	}
 	return overrides
 }
@@ -404,7 +400,6 @@ func (p *Provider) getCapacityType(nodeClaim *corev1beta1.NodeClaim, instanceTyp
 	return corev1beta1.CapacityTypeOnDemand
 }
 
-// TODO @JacobValdemar: see
 func orderInstanceTypesByPrice(instanceTypes []*cloudprovider.InstanceType, requirements scheduling.Requirements) []*cloudprovider.InstanceType {
 	// Order instance types so that we get the cheapest instance types of the available offerings
 	sort.Slice(instanceTypes, func(i, j int) bool {

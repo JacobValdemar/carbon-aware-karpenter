@@ -35,7 +35,7 @@ var (
 			Namespace: metrics.Namespace,
 			Subsystem: cloudProviderSubsystem,
 			Name:      "instance_type_carbon_estimate",
-			Help:      "TEXT", // TODO @JacobValdemar: Write real text
+			Help:      "Estimated hourly carbon impact.",
 		},
 		[]string{
 			InstanceTypeLabel,

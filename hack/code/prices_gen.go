@@ -39,7 +39,6 @@ import (
 	"github.com/aws/karpenter/pkg/test"
 )
 
-// TODO @JacobValdemar: hmm
 func main() {
 	flag.Parse()
 	if flag.NArg() != 1 {

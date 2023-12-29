@@ -54,6 +54,6 @@ func Settings(overrides ...SettingOptions) *awssettings.Settings {
 		InterruptionQueueName:      lo.FromPtrOr(options.InterruptionQueueName, ""),
 		Tags:                       options.Tags,
 		ReservedENIs:               lo.FromPtrOr(options.ReservedENIs, 0),
-		CarbonEfficient:            false, // TODO @JacobValdemar: config: Remove
+		CarbonEfficient:            false,
 	}
 }

@@ -81,9 +81,6 @@ topologySpreadConstraints:
 tolerations:
   - key: CriticalAddonsOnly
     operator: Exists
-  - key: node.kubernetes.io/unschedulable # TODO @JacobValdemar: Remove this toleration
-    effect: NoSchedule
-    operator: Exists
 # -- Additional volumes for the pod.
 extraVolumes: []
 # - name: aws-iam-token
@@ -203,4 +200,4 @@ settings:
     # Setting driftEnabled to true enables the drift deprovisioner to watch for drift between currently deployed nodes
     # and the desired state of nodes set in provisioners and node templates
     driftEnabled: false
-    carbonAwareEnabled: true # TODO @JacobValdemar: Set default as false when releasing
+    carbonEfficient: false
