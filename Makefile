@@ -111,6 +111,18 @@ carbontest:
 		--ginkgo.grace-period=3m \
 		--ginkgo.v
 
+carbonunittest:
+	go test \
+		-p 1 \
+		-count 1 \
+		-timeout ${TEST_TIMEOUT} \
+		-v \
+		./pkg/providers/carbon/... \
+		--ginkgo.focus="" \
+		--ginkgo.timeout=${TEST_TIMEOUT} \
+		--ginkgo.grace-period=3m \
+		--ginkgo.v
+
 benchmark:
 	go test -tags=test_performance -run=NoTests -bench=. ./...
 

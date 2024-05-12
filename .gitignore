@@ -20,3 +20,4 @@ go.work.sum
 /log*
 tmp/
 experiments/
+test/suites/carbon/experiments/
